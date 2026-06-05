@@ -50,7 +50,7 @@ export default function AdminDashboard({ onClose }) {
   // Handle password auth
   const handleAuth = (e) => {
     e.preventDefault();
-    if (password === "000000") {
+    if (password === "enemftmxk100door!!") {
       setIsAuthorized(true);
       setAuthError("");
     } else {
@@ -281,7 +281,7 @@ export default function AdminDashboard({ onClose }) {
             <input
               type="password"
               className="glass-input"
-              placeholder="비밀번호 입력 (기본: 000000)"
+              placeholder="비밀번호를 입력하세요"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={{ width: "85%", marginBottom: "16px", textAlign: "center", fontSize: "1.1rem", letterSpacing: "4px" }}
