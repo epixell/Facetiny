@@ -21,6 +21,7 @@ export default function UserDashboard({ onOpenAdmin }) {
   const [smileIntensity, setSmileIntensity] = useState(0);
   const [smileSuccess, setSmileSuccess] = useState(false);
   const [smileHoldCounter, setSmileHoldCounter] = useState(0);
+  const [openFaqIndex, setOpenFaqIndex] = useState(null);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -432,7 +433,7 @@ export default function UserDashboard({ onOpenAdmin }) {
                 <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>오행체질 (五行體質) 진단</span>
               </div>
               <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
-                얼굴 외곽선 형태 및 가로세로 비를 분석하여 목(木), 화(火), 토(土), 금(金), 수(水) 체질로 분류합니다.
+                동양 상학의 《오행학설(五行學說)》에 의거, 얼굴형의 가로세로 비율과 주요 모서리의 곡률을 계측하여 목(木), 화(火), 토(土), 금(金), 수(水) 고유 체질을 판별합니다.
               </p>
             </div>
 
@@ -442,7 +443,7 @@ export default function UserDashboard({ onOpenAdmin }) {
                 <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>삼정비율 (三停均衡) 계측</span>
               </div>
               <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
-                이마(상정), 눈썹~코끝(중정), 턱끝(하정)의 비율 균형도를 수치화하여 생애 조화도를 계산합니다.
+                전통 《삼정상법(三停相法)》에 기술된 상정(이마), 중정(눈썹~코끝), 하정(턱끝)의 Y축 비율 대칭성을 정밀 진단하여 초년·중년·말년의 조화로운 균형을 분석합니다.
               </p>
             </div>
 
@@ -452,7 +453,7 @@ export default function UserDashboard({ onOpenAdmin }) {
                 <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>오악조응 (五岳) 입체 분석</span>
               </div>
               <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
-                이마, 턱, 양 광대 대비 코의 3D 깊이 격차(Z-Gap)를 정밀 측정하여 중심의 호위 관계를 분석합니다.
+                얼굴의 5대 산봉우리인 이마(남악), 턱(북악), 광대(동·서악), 코(중악)의 Z축 깊이 격차(Z-Gap)를 계측하여, 코를 중심으로 주변 뼈대들이 조응하며 호위하는지 입체 판정합니다.
               </p>
             </div>
 
@@ -462,10 +463,67 @@ export default function UserDashboard({ onOpenAdmin }) {
                 <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>기색판정 (氣色判定) 샘플링</span>
               </div>
               <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
-                미간(명궁)과 코끝(재백궁) 주변 픽셀의 HSL 조도와 밝기 평균값을 측정하여 안색의 맑기를 진단합니다.
+                전통 《기색론(氣色論)》에 기반하여 운기가 집중되는 명궁(미간)과 재백궁(코끝) 주위의 HSL 명도 조도를 샘플링하여 현재 안색의 맑음과 운기를 진단합니다.
               </p>
             </div>
 
+          </div>
+
+          {/* FAQ Accordion Section */}
+          <div style={{ marginTop: "30px" }}>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: "800", color: "#fff", marginBottom: "16px", display: "flex", gap: "8px", alignItems: "center" }}>
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="#00f2fe" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block' }}><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> 자주 묻는 질문 & 학술 가이드 (FAQ)
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {[
+                {
+                  q: "AI 관상은 어떤 방식으로 측정되나요?",
+                  a: "Facetiny는 Google의 실시간 안면 인식 머신러닝 엔진(MediaPipe Face Landmarker)을 활용하여 사용자의 얼굴에서 468개의 3D 좌표를 실시간으로 계측합니다. 이를 통해 이마, 코, 턱, 광대의 기하학적 비대칭도 및 깊이(Z값)를 계측하고, 미간과 코끝 픽셀의 평균 HSL 조도와 밝기(기색)를 분석해 오행체질과 4대 운세 텍스트와 매칭합니다."
+                },
+                {
+                  q: "분석을 위한 얼굴 사진은 안전하게 보호되나요?",
+                  a: "예, 100% 안전합니다. Facetiny는 사용자의 비디오 프레임이나 업로드된 사진 파일을 외부 서버로 단 1바이트도 전송하지 않습니다. 모든 AI 인식 연산은 사용자의 웹 브라우저 내부(클라이언트사이드)에서 WebAssembly 컴파일 기술로 구동되어 완전히 로컬에서 종결되며, 탭을 닫거나 분석이 끝나면 즉시 메모리에서 영구히 삭제됩니다."
+                },
+                {
+                  q: "오행체질과 삼정비율의 전통학적 근거는 무엇인가요?",
+                  a: "본 서비스는 전통 동양 상학의 핵심 경전인 《마의상법(麻衣相法)》, 《오행상설(五行學說)》, 《삼정상법(三停相法)》 등에 기술된 얼굴형 분류 및 대칭 구조 이론을 기반으로 설계되었습니다. 과거 선현들이 누적한 인상학적 지표들을 정량 수치로 환산하여 매칭을 제공합니다."
+                },
+                {
+                  q: "관상 진단 결과를 전적으로 신뢰해야 하나요?",
+                  a: "아닙니다. 전통 관상학 및 인상론은 오랜 역사 동안 통계적 관찰로 축적된 지혜이나 과학적 근거를 담보하지 않습니다. 본 서비스의 결과 카드는 인생에 긍정적인 마음가짐을 가지고 건강한 생활 습관을 유지하도록 조언해 드리는 재미 및 조언 용도(Entertainment)로만 받아들이시기 바랍니다."
+                }
+              ].map((faq, idx) => {
+                const isOpen = openFaqIndex === idx;
+                return (
+                  <div key={idx} className="glass-panel" style={{ overflow: "hidden", border: isOpen ? "1px solid rgba(0, 242, 254, 0.2)" : "1px solid rgba(255, 255, 255, 0.05)", transition: "all 0.2s ease", borderRadius: "12px" }}>
+                    <button
+                      onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
+                      style={{ width: "100%", background: "none", border: "none", padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", color: "#fff", textAlign: "left" }}
+                    >
+                      <span style={{ fontSize: "0.85rem", fontWeight: "600" }}>{faq.q}</span>
+                      <svg 
+                        viewBox="0 0 24 24" 
+                        width="14" 
+                        height="14" 
+                        stroke="#00f2fe" 
+                        strokeWidth="2.5" 
+                        fill="none" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        style={{ transition: "transform 0.2s ease", transform: isOpen ? "rotate(180deg)" : "rotate(0)", flexShrink: 0 }}
+                      >
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                    </button>
+                    {isOpen && (
+                      <div style={{ padding: "0 20px 16px 20px", fontSize: "0.8rem", color: "var(--text-secondary)", lineHeight: "1.6", borderTop: "1px solid rgba(255, 255, 255, 0.02)", paddingTop: "12px" }}>
+                        {faq.a}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
