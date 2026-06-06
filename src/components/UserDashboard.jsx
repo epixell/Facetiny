@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { initFaceLandmarker, calculateMetrics } from "../utils/mediaPipeHelper";
 import { DEFAULT_FORTUNES } from "../utils/defaultFortuneData";
 import { evaluateRules, generateFortuneReport } from "../utils/similarity";
-import { Camera, Upload, RefreshCw, Heart, DollarSign, Users, Activity, Sparkles, Smile, CheckCircle, ArrowRight, Settings, X } from "lucide-react";
+import { Camera, Upload, RefreshCw, Heart, DollarSign, Users, Activity, Sparkles, Smile, CheckCircle, ArrowRight, Settings, X, Shield } from "lucide-react";
 
 export default function UserDashboard({ onOpenAdmin }) {
   const [step, setStep] = useState("init"); // 'init', 'scan', 'loading', 'result'
@@ -341,7 +341,7 @@ export default function UserDashboard({ onOpenAdmin }) {
 
   if (step === "init") {
     return (
-      <div className="flex-center" style={{ minHeight: "80vh", flexDirection: "column" }}>
+      <div className="flex-center" style={{ minHeight: "80vh", flexDirection: "column", padding: "0 10px" }}>
         
         {/* Decorative elements */}
         <div style={{ position: "absolute", top: "15%", left: "10%", width: "250px", height: "250px", background: "var(--accent-purple)", filter: "blur(150px)", opacity: 0.15, borderRadius: "50%", zIndex: -1 }}></div>
@@ -407,12 +407,78 @@ export default function UserDashboard({ onOpenAdmin }) {
           </div>
         )}
 
-        <button 
-          onClick={onOpenAdmin} 
-          style={{ position: "absolute", bottom: "24px", opacity: 0.5, border: "none", background: "none", cursor: "pointer", display: "inline-flex", gap: "6px", alignItems: "center", color: "var(--text-secondary)" }}
-        >
-          <Settings size={14} /> 관리자 설정
-        </button>
+        {/* E-E-A-T & Privacy Assurance Section */}
+        <div style={{ marginTop: "50px", maxWidth: "680px", width: "100%", display: "flex", flexDirection: "column", gap: "20px" }}>
+          
+          {/* Privacy / Safety Card */}
+          <div className="glass-panel" style={{ padding: "24px", display: "flex", gap: "16px", alignItems: "flex-start", border: "1px solid rgba(0, 242, 254, 0.15)", background: "rgba(0, 242, 254, 0.02)" }}>
+            <div className="flex-center" style={{ width: "44px", height: "44px", background: "rgba(0, 242, 254, 0.1)", borderRadius: "50%", flexShrink: 0, marginTop: "2px" }}>
+              <Shield size={20} color="#00f2fe" />
+            </div>
+            <div>
+              <h4 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#fff", marginBottom: "6px" }}>개인정보 및 생체 데이터 프라이버시 안심 선언</h4>
+              <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.5" }}>
+                Facetiny는 사용자의 얼굴 이미지나 비디오 데이터를 <strong>서버로 전송하거나 저장하지 않습니다.</strong> 모든 인공지능 분석은 기기(클라이언트 브라우저) 내부에서 WebAssembly 기반 MediaPipe 엔진을 통해 <strong>100% 로컬</strong>로만 처리되며 분석 즉시 휘발됩니다.
+              </p>
+            </div>
+          </div>
+
+          {/* AI Physiognomy Principles */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+            
+            <div className="glass-panel" style={{ padding: "16px", border: "1px solid rgba(255, 255, 255, 0.03)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
+                <Sparkles size={12} color="#f857a6" />
+                <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>오행체질 (五行體質) 진단</span>
+              </div>
+              <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
+                얼굴 외곽선 형태 및 가로세로 비를 분석하여 목(木), 화(火), 토(土), 금(金), 수(水) 체질로 분류합니다.
+              </p>
+            </div>
+
+            <div className="glass-panel" style={{ padding: "16px", border: "1px solid rgba(255, 255, 255, 0.03)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
+                <Activity size={12} color="#39ff14" />
+                <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>삼정비율 (三停均衡) 계측</span>
+              </div>
+              <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
+                이마(상정), 눈썹~코끝(중정), 턱끝(하정)의 비율 균형도를 수치화하여 생애 조화도를 계산합니다.
+              </p>
+            </div>
+
+            <div className="glass-panel" style={{ padding: "16px", border: "1px solid rgba(255, 255, 255, 0.03)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
+                <Sparkles size={12} color="var(--accent-purple)" />
+                <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>오악조응 (五岳) 입체 분석</span>
+              </div>
+              <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
+                이마, 턱, 양 광대 대비 코의 3D 깊이 격차(Z-Gap)를 정밀 측정하여 중심의 호위 관계를 분석합니다.
+              </p>
+            </div>
+
+            <div className="glass-panel" style={{ padding: "16px", border: "1px solid rgba(255, 255, 255, 0.03)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
+                <Smile size={12} color="#00f2fe" />
+                <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>기색판정 (氣色判定) 샘플링</span>
+              </div>
+              <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
+                미간(명궁)과 코끝(재백궁) 주변 픽셀의 HSL 조도와 밝기 평균값을 측정하여 안색의 맑기를 진단합니다.
+              </p>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Settings Button */}
+        <div style={{ marginTop: "30px", marginBottom: "20px" }}>
+          <button 
+            onClick={onOpenAdmin} 
+            style={{ opacity: 0.5, border: "none", background: "none", cursor: "pointer", display: "inline-flex", gap: "6px", alignItems: "center", color: "var(--text-secondary)", fontSize: "0.85rem" }}
+          >
+            <Settings size={12} /> 관리자 설정
+          </button>
+        </div>
+
       </div>
     );
   }
