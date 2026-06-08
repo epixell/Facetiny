@@ -3,9 +3,21 @@ import React, { useState, useEffect, useRef } from "react";
 import { initFaceLandmarker, calculateMetrics } from "../utils/mediaPipeHelper";
 import { DEFAULT_FORTUNES } from "../utils/defaultFortuneData";
 import { evaluateRules, generateFortuneReport } from "../utils/similarity";
-import { Camera, Upload, RefreshCw, Heart, DollarSign, Users, Activity, Sparkles, Smile, CheckCircle, ArrowRight, Settings, X, Shield } from "lucide-react";
+import { Camera, Upload, RefreshCw, Heart, DollarSign, Users, Activity, Sparkles, Smile, CheckCircle, ArrowRight, Settings, X, Shield, BookOpen } from "lucide-react";
+import { BLOG_ARTICLES } from "../utils/blogData";
+import { evaluateCompatibility } from "../utils/compatibility";
 
 export default function UserDashboard({ onOpenAdmin }) {
+  const [activeTab, setActiveTab] = useState("personal");
+  const [coupleSlotA, setCoupleSlotA] = useState(null);
+  const [coupleSlotB, setCoupleSlotB] = useState(null);
+  const [partnerSlotA, setPartnerSlotA] = useState(null);
+  const [partnerSlotB, setPartnerSlotB] = useState(null);
+  const [compatStep, setCompatStep] = useState("input"); // 'input', 'loading', 'result'
+  const [compatReport, setCompatReport] = useState(null);
+  const [activeCameraSlot, setActiveCameraSlot] = useState(null); // 'coupleA', 'coupleB', etc.
+  const [selectedArticle, setSelectedArticle] = useState(null);
+
   const [step, setStep] = useState("init"); // 'init', 'scan', 'loading', 'result'
   const [scanMode, setScanMode] = useState(""); // 'camera' or 'file'
   const [faceLandmarker, setFaceLandmarker] = useState(null);
@@ -234,6 +246,182 @@ export default function UserDashboard({ onOpenAdmin }) {
     };
   }, []);
 
+  // --- TWO PERSON COMPATIBILITY HELPERS ---
+  const startSlotCamera = async (slotId) => {
+    setActiveCameraSlot(slotId);
+    setTimeout(async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 640, height: 480 }
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+          requestRef.current = requestAnimationFrame(detectSlotLoop);
+        }
+      } catch (err) {
+        console.error(err);
+        alert("카메라 사용 권한이 필요합니다.");
+        setActiveCameraSlot(null);
+      }
+    }, 100);
+  };
+
+  const detectSlotLoop = () => {
+    if (!videoRef.current || !canvasRef.current || videoRef.current.paused) {
+      requestRef.current = requestAnimationFrame(detectSlotLoop);
+      return;
+    }
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+
+    if (video.videoWidth > 0 && video.videoHeight > 0) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.save();
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
+    requestRef.current = requestAnimationFrame(detectSlotLoop);
+  };
+
+  const captureSlotPhoto = () => {
+    if (!videoRef.current || !faceLandmarker) return;
+    const video = videoRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    stopCameraLoop();
+    
+    const result = faceLandmarker.detect(canvas);
+    if (result && result.faceLandmarks && result.faceLandmarks.length > 0) {
+      const landmarks = result.faceLandmarks[0];
+      const rawMetrics = calculateMetrics(landmarks, canvas.width, canvas.height, ctx);
+      
+      const thumbnailCanvas = document.createElement("canvas");
+      const thumbCtx = thumbnailCanvas.getContext("2d");
+      thumbnailCanvas.width = 180;
+      thumbnailCanvas.height = 180;
+      const p4 = landmarks[4];
+      const cropSize = Math.max(canvas.width, canvas.height) * 0.45;
+      const sx = Math.max(0, p4.x * canvas.width - cropSize / 2);
+      const sy = Math.max(0, p4.y * canvas.height - cropSize / 2);
+      thumbCtx.drawImage(canvas, sx, sy, cropSize, cropSize, 0, 0, 180, 180);
+
+      const slotData = {
+        image: canvas.toDataURL(),
+        landmarks: landmarks,
+        metrics: rawMetrics.raw,
+        thumbnail: thumbnailCanvas.toDataURL()
+      };
+
+      updateSlotState(activeCameraSlot, slotData);
+      setActiveCameraSlot(null);
+    } else {
+      alert("얼굴 인식을 완료하지 못했습니다. 얼굴이 정면에 밝게 비치도록 조정한 후 다시 촬영해 주세요.");
+      startSlotCamera(activeCameraSlot);
+    }
+  };
+
+  const handleSlotFileUpload = (slotId, file) => {
+    if (!file || !faceLandmarker) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        const result = faceLandmarker.detect(canvas);
+        if (result && result.faceLandmarks && result.faceLandmarks.length > 0) {
+          const landmarks = result.faceLandmarks[0];
+          const rawMetrics = calculateMetrics(landmarks, canvas.width, canvas.height, ctx);
+
+          const thumbnailCanvas = document.createElement("canvas");
+          const thumbCtx = thumbnailCanvas.getContext("2d");
+          thumbnailCanvas.width = 180;
+          thumbnailCanvas.height = 180;
+          const p4 = landmarks[4];
+          const cropSize = Math.max(img.width, img.height) * 0.45;
+          const sx = Math.max(0, p4.x * img.width - cropSize / 2);
+          const sy = Math.max(0, p4.y * img.height - cropSize / 2);
+          thumbCtx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, 180, 180);
+
+          const slotData = {
+            image: canvas.toDataURL(),
+            landmarks: landmarks,
+            metrics: rawMetrics.raw,
+            thumbnail: thumbnailCanvas.toDataURL()
+          };
+          updateSlotState(slotId, slotData);
+        } else {
+          alert("사진에서 얼굴을 인식하지 못했습니다. 선명한 얼굴 정면 사진을 이용해주세요.");
+        }
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const updateSlotState = (slotId, data) => {
+    if (slotId === 'coupleA') setCoupleSlotA(data);
+    if (slotId === 'coupleB') setCoupleSlotB(data);
+    if (slotId === 'partnerA') setPartnerSlotA(data);
+    if (slotId === 'partnerB') setPartnerSlotB(data);
+  };
+
+  const runCompatibilityAnalysis = (type) => {
+    const slotA = type === 'couple' ? coupleSlotA : partnerSlotA;
+    const slotB = type === 'couple' ? coupleSlotB : partnerSlotB;
+
+    if (!slotA || !slotB) return;
+
+    setCompatStep("loading");
+    setLoadingStatus("두 사람의 안면 기하학 데이터 결합 중...");
+
+    setTimeout(() => {
+      setLoadingStatus("오행 상생상극 체질 융합 매칭 중...");
+      setTimeout(() => {
+        const report = evaluateCompatibility(slotA.metrics, slotB.metrics, type);
+        setCompatReport(report);
+        setCompatStep("result");
+      }, 800);
+    }, 800);
+  };
+
+  const resetCompatibility = (type) => {
+    if (type === 'couple') {
+      setCoupleSlotA(null);
+      setCoupleSlotB(null);
+    } else {
+      setPartnerSlotA(null);
+      setPartnerSlotB(null);
+    }
+    setCompatReport(null);
+    setCompatStep("input");
+  };
+
+  const isActiveColorRgb = (tabId) => {
+    if (tabId === 'personal') return "0, 242, 254";
+    if (tabId === 'couple') return "248, 87, 166";
+    if (tabId === 'partner') return "57, 255, 20";
+    if (tabId === 'blog') return "79, 172, 254";
+    return "255, 255, 255";
+  };
+
   // --- INTERACTIVE SMILE MISSION LOOP ---
   const startSmileMission = async () => {
     setSmileMissionActive(true);
@@ -340,7 +528,7 @@ export default function UserDashboard({ onOpenAdmin }) {
 
   // --- RENDERING VIEWS ---
 
-  if (step === "init") {
+  const renderPersonalInit = () => {
     return (
       <div className="flex-center" style={{ minHeight: "80vh", flexDirection: "column", padding: "0 10px" }}>
         
@@ -539,9 +727,9 @@ export default function UserDashboard({ onOpenAdmin }) {
 
       </div>
     );
-  }
+  };
 
-  if (step === "scan") {
+  const renderPersonalScan = () => {
     return (
       <div className="flex-center" style={{ minHeight: "85vh", flexDirection: "column" }}>
         <h2 style={{ marginBottom: "20px" }}>가이드 라인에 맞추어 주십시오</h2>
@@ -574,9 +762,9 @@ export default function UserDashboard({ onOpenAdmin }) {
         </div>
       </div>
     );
-  }
+  };
 
-  if (step === "loading") {
+  const renderPersonalLoading = () => {
     return (
       <div className="flex-center" style={{ minHeight: "80vh", flexDirection: "column", gap: "20px" }}>
         {/* Futuristic glowing radar loader */}
@@ -588,9 +776,9 @@ export default function UserDashboard({ onOpenAdmin }) {
         <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>잠시만 기다려 주십시오. AI가 오행과 기색 분석을 완료하고 있습니다.</p>
       </div>
     );
-  }
+  };
 
-  if (step === "result" && finalReport) {
+  const renderPersonalResult = () => {
     return (
       <div style={{ paddingBottom: "80px" }}>
         
@@ -917,7 +1105,496 @@ export default function UserDashboard({ onOpenAdmin }) {
 
       </div>
     );
-  }
+  };
 
-  return null;
+  const renderSlotCard = (slotId, label, slotData, themeColor) => {
+    const fileInputRefLocal = useRef(null);
+    return (
+      <div className="glass-panel" style={{
+        padding: "24px",
+        textAlign: "center",
+        border: slotData ? `2px solid ${themeColor}` : "1px dashed rgba(255,255,255,0.15)",
+        background: slotData ? `rgba(${themeColor === '#f857a6' ? '248,87,166' : '57,255,20'}, 0.02)` : "rgba(0,0,0,0.2)",
+        borderRadius: "16px",
+        transition: "all 0.3s ease",
+        position: "relative"
+      }}>
+        <h4 style={{ fontSize: "0.95rem", fontWeight: "700", marginBottom: "16px", color: slotData ? "#fff" : "var(--text-secondary)" }}>
+          {label}
+        </h4>
+
+        {slotData ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
+            <div style={{ position: "relative" }}>
+              <img 
+                src={slotData.thumbnail} 
+                alt="Thumbnail" 
+                style={{ width: "120px", height: "120px", borderRadius: "50%", objectFit: "cover", border: `3px solid ${themeColor}`, boxShadow: `0 0 15px rgba(${themeColor === '#f857a6' ? '248,87,166' : '57,255,20'}, 0.3)` }} 
+              />
+              <div style={{
+                position: "absolute",
+                bottom: "0",
+                right: "0",
+                background: "#39ff14",
+                color: "#000",
+                borderRadius: "50%",
+                width: "26px",
+                height: "26px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 2px 5px rgba(0,0,0,0.5)"
+              }}>
+                <CheckCircle size={16} strokeWidth={3} />
+              </div>
+            </div>
+            <span style={{ fontSize: "0.8rem", color: "#39ff14", fontWeight: "600" }}>얼굴 분석 완료</span>
+            <button 
+              className="btn-secondary" 
+              onClick={() => updateSlotState(slotId, null)}
+              style={{ padding: "6px 12px", fontSize: "0.75rem", background: "rgba(255,255,255,0.05)", border: "none" }}
+            >
+              <X size={12} style={{ marginRight: "4px" }} /> 삭제
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px", minHeight: "158px", justifyContent: "center" }}>
+            <div style={{ width: "48px", height: "48px", borderRadius: "50%", background: "rgba(255,255,255,0.03)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <Users size={20} color="var(--text-secondary)" />
+            </div>
+            
+            <div style={{ display: "flex", gap: "10px", width: "100%" }}>
+              <button 
+                className="btn-secondary" 
+                onClick={() => fileInputRefLocal.current.click()}
+                style={{ flex: 1, padding: "8px 10px", fontSize: "0.8rem", display: "inline-flex", gap: "4px", justifyContent: "center", alignItems: "center" }}
+              >
+                <Upload size={12} /> 파일 업로드
+              </button>
+              <button 
+                className="btn-secondary" 
+                onClick={() => startSlotCamera(slotId)}
+                style={{ flex: 1, padding: "8px 10px", fontSize: "0.8rem", display: "inline-flex", gap: "4px", justifyContent: "center", alignItems: "center" }}
+              >
+                <Camera size={12} /> 촬영하기
+              </button>
+            </div>
+
+            <input 
+              type="file" 
+              ref={fileInputRefLocal}
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (file) handleSlotFileUpload(slotId, file);
+              }}
+            />
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderTwoPersonInputs = (type) => {
+    const themeColor = type === 'couple' ? '#f857a6' : '#39ff14';
+    const isReady = type === 'couple' ? (coupleSlotA && coupleSlotB) : (partnerSlotA && partnerSlotB);
+    
+    return (
+      <div style={{ maxWidth: "800px", margin: "0 auto", paddingBottom: "60px" }}>
+        <div style={{ textAlign: "center", marginBottom: "40px" }}>
+          <h1 style={{ fontSize: "2.5rem", fontWeight: "900", marginBottom: "10px" }}>
+            {type === 'couple' ? 'AI 커플 궁합 분석' : 'AI 파트너 케미 분석'}
+          </h1>
+          <p style={{ color: "var(--text-secondary)", fontSize: "1rem" }}>
+            {type === 'couple' 
+              ? '연인으로서 두 사람의 음양오행 및 외모 대칭 궁합을 과학적 수치와 전통 인상학으로 풀어봅니다.' 
+              : '친구, 직장 동료, 동업자와의 오행 상생상극 케미와 시너지 효과를 분석합니다.'}
+          </p>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", width: "100%", maxWidth: "700px", margin: "0 auto 30px auto" }}>
+          {renderSlotCard(
+            type === 'couple' ? 'coupleA' : 'partnerA', 
+            type === 'couple' ? '첫 번째 인물 (남성)' : '파트너 A (본인/협력자)', 
+            type === 'couple' ? coupleSlotA : partnerSlotA,
+            themeColor
+          )}
+          {renderSlotCard(
+            type === 'couple' ? 'coupleB' : 'partnerB', 
+            type === 'couple' ? '두 번째 인물 (여성)' : '파트너 B (상대방)', 
+            type === 'couple' ? coupleSlotB : partnerSlotB,
+            themeColor
+          )}
+        </div>
+
+        {isReady && (
+          <div style={{ textAlign: "center", marginTop: "40px" }}>
+            <button 
+              className="btn-primary pulse-glow-border" 
+              onClick={() => runCompatibilityAnalysis(type)}
+              style={{
+                padding: "16px 48px",
+                fontSize: "1.1rem",
+                background: `linear-gradient(135deg, ${themeColor}, #4facfe)`,
+                boxShadow: `0 0 25px rgba(${type === 'couple' ? '248,87,166' : '57,255,20'}, 0.4)`,
+                border: "none",
+                borderRadius: "30px",
+                color: "#fff",
+                fontWeight: "700",
+                cursor: "pointer"
+              }}
+            >
+              <Sparkles size={18} style={{ marginRight: "8px" }} /> 궁합 매칭 분석 실행
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderCompatibilityResult = (type) => {
+    const slotA = type === 'couple' ? coupleSlotA : partnerSlotA;
+    const slotB = type === 'couple' ? coupleSlotB : partnerSlotB;
+    const themeColor = type === 'couple' ? '#f857a6' : '#39ff14';
+
+    return (
+      <div style={{ paddingBottom: "80px", maxWidth: "800px", margin: "0 auto" }}>
+        {/* Compatibility Score Header */}
+        <div className="glass-panel" style={{
+          padding: "35px",
+          textAlign: "center",
+          borderRadius: "24px",
+          border: `2px solid ${themeColor}`,
+          background: `linear-gradient(180deg, rgba(${type === 'couple' ? '248, 87, 166' : '57, 25, 20'}, 0.05) 0%, rgba(0,0,0,0.5) 100%)`,
+          marginBottom: "30px",
+          position: "relative",
+          overflow: "hidden"
+        }}>
+          {/* Decorative elements */}
+          <div style={{ position: "absolute", top: "-50px", left: "-50px", width: "150px", height: "150px", background: themeColor, filter: "blur(80px)", opacity: 0.15 }}></div>
+          <div style={{ position: "absolute", bottom: "-50px", right: "-50px", width: "150px", height: "150px", background: "#4facfe", filter: "blur(80px)", opacity: 0.15 }}></div>
+
+          <div style={{ display: "inline-flex", padding: "6px 16px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "30px", fontSize: "0.85rem", fontWeight: "700", color: themeColor, marginBottom: "16px", gap: "6px", alignItems: "center" }}>
+            <Sparkles size={12} /> {compatReport.relationType}
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "40px", margin: "20px 0" }}>
+            {/* Thumb A */}
+            <div style={{ textAlign: "center" }}>
+              <img src={slotA.thumbnail} style={{ width: "90px", height: "90px", borderRadius: "50%", objectFit: "cover", border: `2px solid ${themeColor}` }} alt="A" />
+              <div style={{ fontSize: "0.8rem", color: "#fff", fontWeight: "700", marginTop: "8px" }}>{compatReport.elemA}형</div>
+            </div>
+
+            {/* Glowing Score */}
+            <div style={{ position: "relative", width: "130px", height: "130px", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+              <div className="pulse-glow-border" style={{ position: "absolute", width: "100%", height: "100%", borderRadius: "50%", border: `3px solid ${themeColor}`, animation: "spin 6s linear infinite" }}></div>
+              <span style={{ fontSize: "3rem", fontWeight: "900", color: "#fff", textShadow: `0 0 10px ${themeColor}` }}>{compatReport.score}</span>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "700" }}>MATCH SCORE</span>
+            </div>
+
+            {/* Thumb B */}
+            <div style={{ textAlign: "center" }}>
+              <img src={slotB.thumbnail} style={{ width: "90px", height: "90px", borderRadius: "50%", objectFit: "cover", border: `2px solid ${themeColor}` }} alt="B" />
+              <div style={{ fontSize: "0.8rem", color: "#fff", fontWeight: "700", marginTop: "8px" }}>{compatReport.elemB}형</div>
+            </div>
+          </div>
+
+          <h2 style={{ fontSize: "1.8rem", fontWeight: "800", color: "#fff", marginBottom: "10px" }}>
+            {type === 'couple' ? '환상의 연인 시너지' : '최강의 파트너 시너지'}
+          </h2>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem", maxWidth: "600px", margin: "0 auto", lineHeight: "1.6" }}>
+            {compatReport.description}
+          </p>
+        </div>
+
+        {/* Two Columns details */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: "30px" }}>
+          {/* Column 1: Feature Match Reasons */}
+          <div className="glass-panel" style={{ padding: "24px" }}>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: "700", marginBottom: "16px", display: "flex", gap: "8px", alignItems: "center" }}>
+              <Activity size={16} color="#00f2fe" /> 이목구비 조화성 분석
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {compatReport.reasons.map((reason, idx) => (
+                <div key={idx} style={{ display: "flex", gap: "10px", alignItems: "flex-start", background: "rgba(255,255,255,0.02)", padding: "12px", borderRadius: "10px", border: "1px solid var(--glass-border)" }}>
+                  <span style={{ color: "#00f2fe", fontWeight: "700", fontSize: "0.85rem" }}>✓</span>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.5" }}>{reason}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Column 2: Warnings and Advice */}
+          <div className="glass-panel" style={{ padding: "24px" }}>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: "700", marginBottom: "16px", display: "flex", gap: "8px", alignItems: "center" }}>
+              <Smile size={16} color={themeColor} /> 관계 조화 및 개운법 조언
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {compatReport.warnings.map((warn, idx) => (
+                <div key={idx} style={{ display: "flex", gap: "10px", alignItems: "flex-start", background: "rgba(255,255,255,0.02)", padding: "12px", borderRadius: "10px", border: "1px solid var(--glass-border)" }}>
+                  <span style={{ color: themeColor, fontWeight: "700", fontSize: "0.85rem" }}>!</span>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.5" }}>{warn}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ textAlign: "center" }}>
+          <button className="btn-secondary" onClick={() => resetCompatibility(type)} style={{ padding: "12px 32px" }}>
+            <RefreshCw size={14} style={{ marginRight: "6px" }} /> 다른 궁합 보기
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderBlogTab = () => {
+    if (selectedArticle) {
+      return (
+        <div style={{ maxWidth: "800px", margin: "0 auto", paddingBottom: "60px" }}>
+          <button 
+            className="btn-secondary" 
+            onClick={() => setSelectedArticle(null)}
+            style={{ marginBottom: "24px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+          >
+            ← 목록으로 돌아가기
+          </button>
+
+          <div className="glass-panel" style={{ padding: "40px", borderRadius: "24px", border: "1px solid rgba(0, 242, 254, 0.15)" }}>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "16px" }}>
+              <span style={{ background: "rgba(0, 242, 254, 0.1)", color: "#00f2fe", fontSize: "0.75rem", padding: "4px 10px", borderRadius: "20px", fontWeight: "700" }}>
+                {selectedArticle.category}
+              </span>
+              <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                {selectedArticle.readTime}
+              </span>
+            </div>
+
+            <h1 style={{ fontSize: "2.4rem", fontWeight: "900", marginBottom: "24px", lineHeight: "1.2" }}>
+              {selectedArticle.title}
+            </h1>
+
+            <div style={{ 
+              fontSize: "1.05rem", 
+              lineHeight: "1.8", 
+              color: "#e2e8f0", 
+              whiteSpace: "pre-line", 
+              letterSpacing: "-0.01em" 
+            }}>
+              {selectedArticle.content}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ maxWidth: "1000px", margin: "0 auto", paddingBottom: "60px" }}>
+        <div style={{ textAlign: "center", marginBottom: "40px" }}>
+          <h1 style={{ fontSize: "2.5rem", fontWeight: "900", marginBottom: "10px" }}>
+            AI 관상 <span className="text-gradient">학술 백과</span>
+          </h1>
+          <p style={{ color: "var(--text-secondary)", fontSize: "1rem" }}>
+            마의상법의 지혜부터 현대 AI 얼굴 계측 알고리즘의 과학적 원리까지 깊이 알아봅니다.
+          </p>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "24px" }}>
+          {BLOG_ARTICLES.map(art => (
+            <div 
+              key={art.id} 
+              className="glass-panel glass-panel-hover"
+              onClick={() => setSelectedArticle(art)}
+              style={{ 
+                padding: "24px", 
+                cursor: "pointer", 
+                display: "flex", 
+                flexDirection: "column", 
+                justifyContent: "space-between", 
+                minHeight: "220px",
+                border: "1px solid rgba(255,255,255,0.06)",
+                transition: "all 0.3s ease"
+              }}
+            >
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                  <span style={{ background: "rgba(79, 172, 254, 0.1)", color: "#4facfe", fontSize: "0.7rem", padding: "2px 8px", borderRadius: "10px", fontWeight: "700" }}>
+                    {art.category}
+                  </span>
+                  <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>
+                    {art.readTime}
+                  </span>
+                </div>
+                <h3 style={{ fontSize: "1.2rem", fontWeight: "800", marginBottom: "10px", lineHeight: "1.3", color: "#fff" }}>
+                  {art.title}
+                </h3>
+                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.5", margin: 0 }}>
+                  {art.summary}
+                </p>
+              </div>
+              
+              <div style={{ display: "flex", alignItems: "center", gap: "4px", color: "#00f2fe", fontSize: "0.85rem", fontWeight: "700", marginTop: "16px" }}>
+                자세히 보기 <ArrowRight size={14} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderCameraModal = () => {
+    if (!activeCameraSlot) return null;
+
+    return (
+      <div style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "rgba(0,0,0,0.85)",
+        backdropFilter: "blur(8px)",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 1000,
+        padding: "20px"
+      }}>
+        <div className="glass-panel" style={{
+          width: "100%",
+          maxWidth: "560px",
+          padding: "24px",
+          textAlign: "center",
+          border: "1px solid rgba(0, 242, 254, 0.3)",
+          boxShadow: "0 0 30px rgba(0, 242, 254, 0.2)"
+        }}>
+          <h3 style={{ marginBottom: "16px", fontSize: "1.2rem", fontWeight: "700" }}>얼굴 촬영 가이드</h3>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: "20px" }}>
+            가이드 타원 안에 정면 얼굴이 꽉 차도록 맞추어 카메라 촬영 버튼을 눌러 주십시오.
+          </p>
+
+          <div style={{ position: "relative", width: "100%", aspectRatio: "4/3", borderRadius: "12px", overflow: "hidden", background: "#000", marginBottom: "20px" }}>
+            <div className="scanning-line"></div>
+            <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "220px", height: "280px", border: "2px dashed rgba(0, 242, 254, 0.5)", borderRadius: "50%", zIndex: 8, pointerEvents: "none" }}></div>
+
+            <video
+              ref={videoRef}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "none" }}
+              playsInline
+              muted
+            />
+            <canvas
+              ref={canvasRef}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          </div>
+
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+            <button className="btn-primary" onClick={captureSlotPhoto} style={{ padding: "12px 30px" }}>
+              <Sparkles size={16} /> 촬영하기
+            </button>
+            <button className="btn-secondary" onClick={() => { stopCameraLoop(); setActiveCameraSlot(null); }}>
+              취소
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ position: "relative", minHeight: "80vh" }}>
+      {renderCameraModal()}
+
+      {step !== "scan" && step !== "loading" && compatStep !== "loading" && (
+        <div style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: "8px",
+          marginBottom: "36px",
+          background: "rgba(255, 255, 255, 0.02)",
+          border: "1px solid rgba(255, 255, 255, 0.05)",
+          padding: "6px",
+          borderRadius: "30px",
+          maxWidth: "600px",
+          margin: "0 auto 36px auto",
+          backdropFilter: "blur(12px)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.15)"
+        }}>
+          {[
+            { id: 'personal', label: '개인 관상', color: '#00f2fe', icon: <Sparkles size={15} /> },
+            { id: 'couple', label: '커플 궁합', color: '#f857a6', icon: <Heart size={15} /> },
+            { id: 'partner', label: '파트너 케미', color: '#39ff14', icon: <Users size={15} /> },
+            { id: 'blog', label: '관상 백과', color: '#4facfe', icon: <BookOpen size={15} /> }
+          ].map(tab => {
+            const isActive = activeTab === tab.id;
+            const rgb = isActiveColorRgb(tab.id);
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  stopCameraLoop();
+                  setActiveTab(tab.id);
+                  setCompatReport(null);
+                  setCompatStep("input");
+                }}
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  padding: "10px 14px",
+                  borderRadius: "20px",
+                  border: "none",
+                  background: isActive ? `rgba(${rgb}, 0.12)` : "transparent",
+                  color: isActive ? tab.color : "var(--text-secondary)",
+                  fontWeight: isActive ? "700" : "500",
+                  fontSize: "0.85rem",
+                  cursor: "pointer",
+                  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                  border: isActive ? `1px solid rgba(${rgb}, 0.25)` : "1px solid transparent",
+                  boxShadow: isActive ? `0 2px 10px rgba(${rgb}, 0.1)` : "none"
+                }}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {activeTab === 'personal' && (
+        <>
+          {step === "init" && renderPersonalInit()}
+          {step === "scan" && renderPersonalScan()}
+          {step === "loading" && renderPersonalLoading()}
+          {step === "result" && finalReport && renderPersonalResult()}
+        </>
+      )}
+
+      {activeTab === 'couple' && (
+        <>
+          {compatStep === "input" && renderTwoPersonInputs('couple')}
+          {compatStep === "loading" && renderPersonalLoading()}
+          {compatStep === "result" && compatReport && renderCompatibilityResult('couple')}
+        </>
+      )}
+
+      {activeTab === 'partner' && (
+        <>
+          {compatStep === "input" && renderTwoPersonInputs('partner')}
+          {compatStep === "loading" && renderPersonalLoading()}
+          {compatStep === "result" && compatReport && renderCompatibilityResult('partner')}
+        </>
+      )}
+
+      {activeTab === 'blog' && renderBlogTab()}
+    </div>
+  );
 }
