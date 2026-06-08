@@ -41,6 +41,12 @@ export default function UserDashboard({ onOpenAdmin }) {
   const requestRef = useRef(null);
   const resultCanvasRef = useRef(null);
 
+  // File input refs defined at top-level to prevent Rules of Hooks violations
+  const coupleFileRefA = useRef(null);
+  const coupleFileRefB = useRef(null);
+  const partnerFileRefA = useRef(null);
+  const partnerFileRefB = useRef(null);
+
   // Initialize AI engine
   useEffect(() => {
     setLoadingEngine(true);
@@ -1124,7 +1130,12 @@ export default function UserDashboard({ onOpenAdmin }) {
   };
 
   const renderSlotCard = (slotId, label, slotData, themeColor) => {
-    const fileInputRefLocal = useRef(null);
+    let fileInputRefLocal = null;
+    if (slotId === 'coupleA') fileInputRefLocal = coupleFileRefA;
+    else if (slotId === 'coupleB') fileInputRefLocal = coupleFileRefB;
+    else if (slotId === 'partnerA') fileInputRefLocal = partnerFileRefA;
+    else if (slotId === 'partnerB') fileInputRefLocal = partnerFileRefB;
+
     return (
       <div className="glass-panel" style={{
         padding: "24px",
