@@ -35,7 +35,7 @@ const RELATIONSHIP_MATRIX = {
     mok: { score: 90, type: "상생(생성) 관계", couple: "강물이 나무의 뿌리를 축여 자라게 하듯(수생목), 지혜롭고 융통성 있는 수형이 원칙을 중시하며 곧은 목형을 심리적으로 든든히 보필하고 성장시키는 평온한 궁합입니다.", partner: "수형의 상황 대처 능력과 정보력, 목형의 정밀한 실행 기획과 문서 체계가 융합되어 어떤 사업 기회든 체계적인 수익 구조로 뽑아내는 콤비입니다." },
     hwa: { score: 65, type: "상극(억제) 관계", couple: "찬물이 뜨거운 불을 급격히 끄듯(수극화), 감정적이고 자존심 센 화형이 현실적이고 유연하며 다소 냉정한 수형의 언사에서 서운함을 느끼고 돌아서기 쉽습니다.", partner: "목표 지향적인 화형과 과정 및 친화 지향적인 수형이 갈등하기 쉽습니다. 일정을 문서화하고 명확한 중간 조율자를 두어야 관계가 유지됩니다." },
     to: { score: 58, type: "상극(억제) 관계", couple: "흙이 맑은 물줄기를 덮쳐 탁하게 만들듯(토극수), 자유롭고 대인관계 위주인 수형의 융통성이 보수적이고 신의와 원칙을 고집스럽게 지키는 토형에게 집착이나 답답함으로 다가옵니다.", partner: "토형의 보수적인 예산 운용이 수형의 자유로운 마케팅 활동을 제한하여 마찰을 부릅니다. 예산 집행 한도를 미리 조율해야 동업이 유지됩니다." },
-    geum: { score: 90, type: "상생(생성) 관계", couple: "바위가 맑은 옹달샘을 솟아나게 하듯(금생수), 단단하고 결단력 있는 금형의 책임감이 부드럽고 융통성 높은 수형에게 깊은 안전감과 믿음을 주어 행복한 연을 유지합니다.", partner: "금형의 확실한 품질 보증 및 리스크 차단 본능과 수형의 적극적이고 매끄러운 영업 활동이 조화를 이루어 롱런하는 튼튼한 조합입니다." },
+    geum: { score: 90, type: "상생(생성) 관계", couple: "바위가 맑은 옹달샘을 솟아나게 하듯(금생수), 단단하고 결단력 있는 금형의 책임감이 부드럽고 융통성 높은 수형에게 깊은 안전감 및 믿음을 주어 행복한 연을 유지합니다.", partner: "금형의 확실한 품질 보증 및 리스크 차단 본능과 수형의 적극적이고 매끄러운 영업 활동이 조화를 이루어 롱런하는 튼튼한 조합입니다." },
     su: { score: 80, type: "비견(동일) 관계", couple: "두 물줄기가 만나 거대한 강을 이루듯 융통성과 대인관계 능력이 최고입니다. 유유자적하고 즐거운 라이프스타일을 공유하지만, 재물 관리에 소홀할 수 있어 조심해야 합니다.", partner: "아이디어가 무궁무진하고 사교성이 뛰어나 외부 미팅 및 영업에 강력합니다. 다만 실질적인 뼈대를 잡고 실행할 관리형 직원이 보완되어야 사업이 유지됩니다." }
   }
 };
@@ -66,39 +66,95 @@ export function evaluateCompatibility(rawA, rawB, type = 'couple') {
   let scoreAdjustment = 0;
   const reasons = [];
 
+  const labelA = type === 'couple' ? "A님(남성)" : "파트너 A";
+  const labelB = type === 'couple' ? "B님(여성)" : "파트너 B";
+
   // 1. Eyebrow expression & intensity (Brow center z-gap & slant)
-  const eyebrowDiff = Math.abs((rawA.eyebrow_slant || 0) - (rawB.eyebrow_slant || 0));
-  if (eyebrowDiff < 0.04) {
-    // Both have similar eyebrow expressions (either both gentle or both active)
-    scoreAdjustment += 3;
-    reasons.push(type === 'couple' ? "눈썹 각도와 결이 닮아 서로 첫인상부터 호감을 크게 느꼈을 것입니다." : "의지력과 행동 지향점이 비슷해 프로젝트 돌파 시 주저함이 없습니다.");
-  } else {
-    // Complementary
+  const eyebrowSlantA = rawA.eyebrow_slant || 0;
+  const eyebrowSlantB = rawB.eyebrow_slant || 0;
+  const eyebrowDiff = Math.abs(eyebrowSlantA - eyebrowSlantB);
+
+  // Classify eyebrows: Strong-willed (>18) vs Gentle (<12) vs Moderate (otherwise)
+  const isStrongA = eyebrowSlantA > 18;
+  const isStrongB = eyebrowSlantB > 18;
+  const isGentleA = eyebrowSlantA < 12;
+  const isGentleB = eyebrowSlantB < 12;
+
+  if (isStrongA && isStrongB) {
     scoreAdjustment += 2;
-    reasons.push(type === 'couple' ? "한 사람의 강단과 다른 사람의 차분한 눈썹 관상이 조화를 이루며 서로를 보완합니다." : "한 사람은 과감하고 한 사람은 신중하여 상호 보안 리스크 필터링이 가능합니다.");
+    reasons.push(type === 'couple' 
+      ? `두 분 모두 눈썹 각도가 가팔라 주관이 뚜렷하고 강단 있는 성향입니다. 서로 추진력을 높여주는 관계이나, 의견 대립 시 한 치도 양보하지 않는 자존심 대결로 흐를 수 있으니 유의하십시오.`
+      : `양쪽 모두 적극적이고 주체적인 의지를 뜻하는 눈썹입니다. 사업 추진력이 대단하지만, 의사결정 시 자존심 다툼이 생길 수 있어 결재권을 사전에 명확히 나눌 필요가 있습니다.`);
+  } else if (isGentleA && isGentleB) {
+    scoreAdjustment += 4;
+    reasons.push(type === 'couple'
+      ? `두 분 모두 눈썹이 차분하고 부드러운 형태로, 온화하고 남을 먼저 배려하는 케미입니다. 갈등 상황에서도 감정적인 폭발 없이 이성적으로 화합을 도모하는 따뜻한 연인입니다.`
+      : `두 파트너 모두 수용적이고 포용력이 높은 온화한 눈썹입니다. 업무 마찰이 매우 적고 서로 의견 조율을 존중하며 평온하고 건강하게 협력하는 파트너십입니다.`);
+  } else if ((isStrongA && isGentleB) || (isGentleA && isStrongB)) {
+    scoreAdjustment += 3;
+    const strongLabel = isStrongA ? labelA : labelB;
+    const gentleLabel = isStrongA ? labelB : labelA;
+    reasons.push(type === 'couple'
+      ? `[보완형] 눈썹이 강단 있는 ${strongLabel}이 주도적으로 결단을 내리면, 차분한 눈썹의 ${gentleLabel}이 이를 보완하고 부드럽게 감싸줍니다. 강함과 부드러움의 균형이 잘 잡힌 조화입니다.`
+      : `[보완형] 주체성이 확실한 ${strongLabel}이 리더십을 발휘하고 리스크를 돌파하면, 신중한 ${gentleLabel}이 뒤에서 서포트하여 안정적으로 사업을 궤도에 올리는 훌륭한 역할 매칭입니다.`);
+  } else {
+    scoreAdjustment += 1;
+    reasons.push(`두 분의 눈썹 각도와 의지력이 모나지 않게 조화로워, 함께 소통할 때 감정적 기복 없이 무난한 신뢰 관계를 유지합니다.`);
   }
 
-  // 2. Mouth corners (Smile slant / positivity)
+  // 2. Eye corner slants (Eye shapes: sharp vs round)
+  // mediaPipeHelper uses 'eye_slant' as raw metric
+  const eyeSlantA = rawA.eye_slant || 0;
+  const eyeSlantB = rawB.eye_slant || 0;
+  const eyeSlantDiff = Math.abs(eyeSlantA - eyeSlantB);
+
+  // Classify eyes: Sharp (>12) vs Round (<7) vs Moderate (otherwise)
+  const isSharpEyeA = eyeSlantA > 12;
+  const isSharpEyeB = eyeSlantB > 12;
+  const isRoundEyeA = eyeSlantA < 7;
+  const isRoundEyeB = eyeSlantB < 7;
+
+  if (isSharpEyeA && isSharpEyeB) {
+    scoreAdjustment += 1;
+    reasons.push(type === 'couple'
+      ? `두 분 모두 이성적이고 예리한 눈매를 가졌습니다. 직관력과 상황 대처가 뛰어나 영리한 연애를 하지만, 지나치게 냉철한 피드백으로 상대방에게 상처를 주지 않도록 정서적 공감 노력이 필요합니다.`
+      : `두 파트너 모두 날카로운 분석력의 예리한 눈매입니다. 비즈니스 리스크를 철저히 검증하고 분석하는 데 완벽한 시너지이지만, 협의 과정에서 차가운 직설법으로 팀 분위기가 건조해질 수 있습니다.`);
+  } else if (isRoundEyeA && isRoundEyeB) {
+    scoreAdjustment += 2;
+    reasons.push(type === 'couple'
+      ? `두 분 모두 둥글고 온화한 감성적 눈매를 가졌습니다. 사교적이고 서로에 대한 깊은 공감과 감수성 교류를 이뤄 행복도가 높으나, 중요한 결정 시 온정에 치우쳐 판단이 늦어질 수 있습니다.`
+      : `양쪽 모두 포용적이고 친화력이 높은 둥근 눈매입니다. 대인 영업이나 고객 소통에 탁월하며 서로 신뢰하지만, 계약 조건 등 냉정한 비즈니스 결정 시에는 외부 자문을 받는 것이 안전합니다.`);
+  } else if ((isSharpEyeA && isRoundEyeB) || (isRoundEyeA && isSharpEyeB)) {
+    scoreAdjustment += 4;
+    const sharpLabel = isSharpEyeA ? labelA : labelB;
+    const roundLabel = isSharpEyeA ? labelB : labelA;
+    reasons.push(type === 'couple'
+      ? `[보완형] 예리하고 이성적인 눈매의 ${sharpLabel}과 감성적이고 다정한 눈매의 ${roundLabel}이 만났습니다. 이성과 감성이 완벽한 비율로 어우러져 서로의 맹점을 보완하는 최고 등급의 궁합입니다.`
+      : `[보완형] 이성적인 눈매의 ${sharpLabel}이 냉정하게 시스템과 리스크를 관리하고, 감성적인 눈매의 ${roundLabel}이 대외 친화 및 영업을 주도하여 기업의 안팎을 완벽히 메우는 비즈니스 최적화 조합입니다.`);
+  } else {
+    scoreAdjustment += 2;
+    reasons.push(`두 분 다 사물을 넓고 깊게 조망하는 눈매의 흐름을 공유하여, 말없이 눈빛만 보아도 속뜻이 통하는 든든한 동지적 신의가 존재합니다.`);
+  }
+
+  // 3. Mouth corners (Smile slant / positivity)
   const mouthSlantA = rawA.mouth_corner_slant || 0;
   const mouthSlantB = rawB.mouth_corner_slant || 0;
-  if (mouthSlantA > 0.02 && mouthSlantB > 0.02) {
-    scoreAdjustment += 4;
-    reasons.push("두 사람 모두 입꼬리가 위를 향하는 양월구(陽月口) 관상을 지녀 함께 있으면 긍정적인 복과 재물이 배가됩니다.");
-  } else if (Math.abs(mouthSlantA - mouthSlantB) > 0.06) {
-    scoreAdjustment += 1;
-    reasons.push("한 사람의 묵묵함과 다른 사람의 밝고 사교적인 표정이 어우러져 일상의 지루함을 달래 줍니다.");
-  }
 
-  // 3. Eye corner slants (Eye shapes: sharp vs round)
-  const eyeSlantA = rawA.eye_corner_slant || 0;
-  const eyeSlantB = rawB.eye_corner_slant || 0;
-  const eyeSlantDiff = Math.abs(eyeSlantA - eyeSlantB);
-  if (eyeSlantDiff > 0.06) {
+  // Classify mouth: Upturned (>0.02) vs Cautious/Flat (<=0.02)
+  const isUpA = mouthSlantA > 0.02;
+  const isUpB = mouthSlantB > 0.02;
+
+  if (isUpA && isUpB) {
+    scoreAdjustment += 5;
+    reasons.push(`[양월구 조화] 두 분 모두 입꼬리가 위를 향하는 긍정적인 양월구(陽月口) 관상을 타고났습니다. 만났을 때 기쁨과 복록이 배가되어, 재물이 마르지 않고 활기찬 웃음이 끊이지 않는 최상의 인연입니다.`);
+  } else if ((isUpA && !isUpB) || (!isUpA && isUpB)) {
     scoreAdjustment += 3;
-    reasons.push(type === 'couple' ? "눈 모양의 개성이 서로 달라(한 사람은 날카롭고 이성적, 한 사람은 둥글고 감성적) 질리지 않는 깊은 매력을 느낍니다." : "한 사람은 날카로운 피드백을 맡고 한 사람은 대인 친화를 맡아 외부 고객 대응에 최적입니다.");
+    const upLabel = isUpA ? labelA : labelB;
+    const downLabel = isUpA ? labelB : labelA;
+    reasons.push(`[완급 조절] 긍정적이고 표현력이 좋은 ${upLabel}이 지루할 틈 없이 관계에 밝은 활기를 공급하고, 신중하고 진중한 입꼬리의 ${downLabel}이 묵묵히 무게중심을 잡아 튀지 않게 조절하는 안정적 흐름을 보입니다.`);
   } else {
     scoreAdjustment += 1;
-    reasons.push("관조하는 눈매의 흐름과 사물을 보는 통찰 코드가 같아 깊은 침묵 속에서도 통하는 신뢰가 있습니다.");
+    reasons.push(`두 분 모두 매사에 진지하고 실언을 삼가는 신중한 수평형 입꼬리 관상입니다. 불필요한 마찰이나 실수가 극도로 적어 신뢰하지만, 다소 적막할 수 있으니 의식적으로 서로에게 다정한 칭찬의 리액션을 늘려 활기를 돋우는 것이 좋습니다.`);
   }
 
   const finalScore = Math.max(30, Math.min(99, baseScore + scoreAdjustment));
@@ -107,27 +163,27 @@ export function evaluateCompatibility(rawA, rawB, type = 'couple') {
   const warnings = [];
   if (relationTypeName.includes("상극")) {
     if (type === 'couple') {
-      warnings.push("의견 대립 시 즉각적인 감정 표현을 삼가고, 3시간 정도 생각의 정리 기간을 가진 뒤 차분히 대화하십시오.");
-      warnings.push("상대방의 자존심이나 아킬레스건을 건드리는 직설적인 조언보다 '내가 속상했다'는 I-Message 화법이 훌륭한 개운법입니다.");
+      warnings.push("의견 충돌 시 감정의 격앙을 식히기 위해 최소 3시간 이상의 '생각 정리 시간'을 합의한 뒤 조용히 대화를 개시하십시오.");
+      warnings.push("직설적으로 지적하거나 가르치려 들면 파국을 부릅니다. '내가 이 부분이 속상했다'는 I-Message 화법을 쓰는 것이 개운법입니다.");
     } else {
-      warnings.push("공적인 예산 집행이나 업무 분담(R&R)에 대해 계약서나 문서로 완벽히 명문화해 두어야 트러블을 예방합니다.");
-      warnings.push("상대방이 추진하는 업무 방식이 마음에 들지 않더라도 일단 1차 보고 시점까지는 격려하고 기다려주는 인내가 성공을 부릅니다.");
+      warnings.push("공적인 예산 집행 한도나 수익 배분(R&R)에 대해 구두 합의에 그치지 않고, 반드시 정식 서면 계약서로 명문화해야 트러블을 차단합니다.");
+      warnings.push("업무 진행 스타일이 서로 달라 불만이 쌓이기 쉽습니다. 각자 담당한 마일스톤 완료 전까지는 사소한 지적을 자제하고 믿어주는 신용이 필요합니다.");
     }
   } else if (relationTypeName.includes("비견") || relationTypeName.includes("동일")) {
     if (type === 'couple') {
-      warnings.push("서로 가치관이나 성격이 너무 닮았기 때문에 자칫 권태기가 올 수 있으니 매년 새로운 장소로의 여행을 계획해 보세요.");
-      warnings.push("둘 다 고집이 차오르는 시점에는 제3자의 객관적인 조언을 듣는 조율 기조를 미리 약속해 두면 좋습니다.");
+      warnings.push("서로 생각의 흐름과 고집의 한계가 똑 닮아 있어 권태기가 올 수 있으니 매년 낯선 해외나 새로운 장소로의 여행을 추진해 환기해 보세요.");
+      warnings.push("둘 다 고집이 세지는 순간 중재자가 부재하게 되므로, 의견 대립 시 양쪽 모두 신뢰할 수 있는 공정하고 객관적인 지인의 피드백을 수용하기로 약조하십시오.");
     } else {
-      warnings.push("둘 다 장점과 단점이 겹치므로 리스크 관리나 마케팅 중 비어있는 파트에 대해 외부 전문가의 조언을 정기적으로 수용하십시오.");
-      warnings.push("아이디어가 좋지만 문서화나 뒤처리가 약할 수 있으니 끈기 있게 서포트할 수 있는 보완 직원을 팀에 합류시키는 것을 추천합니다.");
+      warnings.push("서로 장단점 및 강약점이 겹치기 때문에, 리스크 관리나 회계 등 비어있는 취약 분야에 대해 외부 자문을 정기적으로 받아 대비하십시오.");
+      warnings.push("기획력은 중첩되나 뒤처리가 미숙할 수 있습니다. 시스템을 마무리해 줄 수 있는 실행력 위주의 보완 직원을 팀에 조속히 합류시키길 추천합니다.");
     }
   } else { // 상생
     if (type === 'couple') {
-      warnings.push("원체 궁합이 부드러워 서로에게 지나치게 의존하다가 중요한 경제적 결정 시기를 놓치지 않도록 이성적인 점검도 잊지 마세요.");
-      warnings.push("서로 돕는 에너지(목생화, 화생토 등)를 지속시키기 위해 서로의 배려에 늘 고마움을 언어로 꼼꼼히 표현하십시오.");
+      warnings.push("궁합이 너무 순조로워 서로에게 과도하게 안주하다가 정작 경제적 발전이나 중요한 의사결정 골든타임을 놓치지 않도록 냉정히 교차 점검해 보세요.");
+      warnings.push("목생화, 수생목 등 서로를 생(生)해 주는 은혜를 당연시하지 말고, 매일 상대방이 베푼 배려에 대한 고마움을 명확하게 말로 고백하십시오.");
     } else {
-      warnings.push("사업이 너무 잘 풀린다고 자만하지 말고, 상생의 기운이 극에 달했을 때 이익의 일부를 리스크 대비 준비금으로 단단히 저축해 두십시오.");
-      warnings.push("서로에 대한 예의와 파트너십이 과해져 쓴소리를 해야 할 골든타임을 넘기지 않도록 매 분기 냉정하게 성과를 대조하십시오.");
+      warnings.push("비즈니스 궁합이 뛰어나 사업이 잘 풀릴수록 겸손해야 하며, 매출 기운이 상승할 때 다가올 침체기에 대비해 공동 비상 유보금을 두텁게 적립해 두십시오.");
+      warnings.push("서로에 대한 비즈니스 예의가 넘쳐 과감한 결단이나 쓴소리를 미루기 쉽습니다. 정기적으로 성과 데이터를 비교하여 객관적 이익 창출 기조를 점검하십시오.");
     }
   }
 

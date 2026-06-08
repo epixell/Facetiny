@@ -317,10 +317,18 @@ export default function UserDashboard({ onOpenAdmin }) {
       const sy = Math.max(0, p4.y * canvas.height - cropSize / 2);
       thumbCtx.drawImage(canvas, sx, sy, cropSize, cropSize, 0, 0, 180, 180);
 
+      // Precompute individual fortune report
+      const savedRules = localStorage.getItem("lookalike_rules");
+      const activeRules = savedRules ? JSON.parse(savedRules) : DEFAULT_FORTUNES;
+      const matchedRules = evaluateRules(rawMetrics.raw, activeRules);
+      const report = generateFortuneReport(rawMetrics, matchedRules);
+
       const slotData = {
         image: canvas.toDataURL(),
         landmarks: landmarks,
         metrics: rawMetrics.raw,
+        derived: rawMetrics.derived,
+        report: report,
         thumbnail: thumbnailCanvas.toDataURL()
       };
 
@@ -360,10 +368,18 @@ export default function UserDashboard({ onOpenAdmin }) {
           const sy = Math.max(0, p4.y * img.height - cropSize / 2);
           thumbCtx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, 180, 180);
 
+          // Precompute individual fortune report
+          const savedRules = localStorage.getItem("lookalike_rules");
+          const activeRules = savedRules ? JSON.parse(savedRules) : DEFAULT_FORTUNES;
+          const matchedRules = evaluateRules(rawMetrics.raw, activeRules);
+          const report = generateFortuneReport(rawMetrics, matchedRules);
+
           const slotData = {
             image: canvas.toDataURL(),
             landmarks: landmarks,
             metrics: rawMetrics.raw,
+            derived: rawMetrics.derived,
+            report: report,
             thumbnail: thumbnailCanvas.toDataURL()
           };
           updateSlotState(slotId, slotData);
@@ -1342,6 +1358,127 @@ export default function UserDashboard({ onOpenAdmin }) {
             </div>
           </div>
         </div>
+
+        {/* 두 사람의 개별 관상 요약 (Summary Readings) */}
+        {slotA.report && slotB.report && (
+          <div style={{ marginBottom: "40px" }}>
+            <h3 style={{ 
+              fontSize: "1.25rem", 
+              fontWeight: "800", 
+              color: "#fff", 
+              marginBottom: "20px", 
+              textAlign: "center", 
+              display: "flex", 
+              gap: "8px", 
+              alignItems: "center", 
+              justifyContent: "center" 
+            }}>
+              <Sparkles size={18} color={themeColor} /> 두 사람의 개별 관상 요약
+            </h3>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+              
+              {/* Person A Summary */}
+              <div className="glass-panel" style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "16px", border: `1px solid rgba(255,255,255,0.06)`, textAlign: "left" }}>
+                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                  <img src={slotA.thumbnail} style={{ width: "50px", height: "50px", borderRadius: "50%", objectFit: "cover", border: `2px solid ${themeColor}` }} alt="A" />
+                  <div>
+                    <h4 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#fff", margin: 0 }}>
+                      {type === 'couple' ? "A님 (남성)" : "파트너 A"}
+                    </h4>
+                    <span style={{ fontSize: "0.75rem", color: themeColor, fontWeight: "600" }}>
+                      {slotA.report.elements?.name || "분석대기"}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "0.8rem", borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: "12px" }}>
+                  <div>
+                    <div style={{ color: "var(--text-secondary)", fontWeight: "600", marginBottom: "4px" }}>오행체질 설명</div>
+                    <div style={{ color: "#cbd5e1", lineHeight: "1.4" }}>{slotA.report.elements?.char || "분석 정보가 없습니다."}</div>
+                  </div>
+
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "600", color: "var(--text-secondary)" }}>
+                      <span>삼정 비율 균형</span>
+                      <span style={{ color: "#39ff14" }}>{slotA.report.samjeong?.score || 0}점</span>
+                    </div>
+                    {slotA.report.samjeong && (
+                      <div style={{ display: "flex", height: "14px", borderRadius: "7px", overflow: "hidden", margin: "6px 0", background: "rgba(255,255,255,0.05)" }}>
+                        <div style={{ width: `${slotA.report.samjeong.sj}%`, background: "linear-gradient(90deg, #f857a6, #ff5858)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700" }}>상 {Math.round(slotA.report.samjeong.sj)}%</div>
+                        <div style={{ width: `${slotA.report.samjeong.jj}%`, background: "linear-gradient(90deg, #00f2fe, #4facfe)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700", borderLeft: "1px solid #111", borderRight: "1px solid #111" }}>중 {Math.round(slotA.report.samjeong.jj)}%</div>
+                        <div style={{ width: `${slotA.report.samjeong.hj}%`, background: "linear-gradient(90deg, #39ff14, #00ff7f)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700" }}>하 {Math.round(slotA.report.samjeong.hj)}%</div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "600", color: "var(--text-secondary)" }}>
+                      <span>오악조응 균형</span>
+                      <span style={{ color: "var(--accent-purple)" }}>{slotA.report.peaks?.score || 0}점</span>
+                    </div>
+                    <div style={{ color: "#cbd5e1", lineHeight: "1.4", marginTop: "2px" }}>{slotA.report.peaks?.name || "분석대기"}</div>
+                  </div>
+
+                  <div>
+                    <div style={{ color: "var(--text-secondary)", fontWeight: "600", marginBottom: "2px" }}>현재 기색 판정</div>
+                    <div style={{ color: "var(--text-secondary)", lineHeight: "1.4" }}>{slotA.report.stars?.text || "분석 정보가 없습니다."}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Person B Summary */}
+              <div className="glass-panel" style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "16px", border: `1px solid rgba(255,255,255,0.06)`, textAlign: "left" }}>
+                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                  <img src={slotB.thumbnail} style={{ width: "50px", height: "50px", borderRadius: "50%", objectFit: "cover", border: `2px solid ${themeColor}` }} alt="B" />
+                  <div>
+                    <h4 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#fff", margin: 0 }}>
+                      {type === 'couple' ? "B님 (여성)" : "파트너 B"}
+                    </h4>
+                    <span style={{ fontSize: "0.75rem", color: themeColor, fontWeight: "600" }}>
+                      {slotB.report.elements?.name || "분석대기"}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "0.8rem", borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: "12px" }}>
+                  <div>
+                    <div style={{ color: "var(--text-secondary)", fontWeight: "600", marginBottom: "4px" }}>오행체질 설명</div>
+                    <div style={{ color: "#cbd5e1", lineHeight: "1.4" }}>{slotB.report.elements?.char || "분석 정보가 없습니다."}</div>
+                  </div>
+
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "600", color: "var(--text-secondary)" }}>
+                      <span>삼정 비율 균형</span>
+                      <span style={{ color: "#39ff14" }}>{slotB.report.samjeong?.score || 0}점</span>
+                    </div>
+                    {slotB.report.samjeong && (
+                      <div style={{ display: "flex", height: "14px", borderRadius: "7px", overflow: "hidden", margin: "6px 0", background: "rgba(255,255,255,0.05)" }}>
+                        <div style={{ width: `${slotB.report.samjeong.sj}%`, background: "linear-gradient(90deg, #f857a6, #ff5858)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700" }}>상 {Math.round(slotB.report.samjeong.sj)}%</div>
+                        <div style={{ width: `${slotB.report.samjeong.jj}%`, background: "linear-gradient(90deg, #00f2fe, #4facfe)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700", borderLeft: "1px solid #111", borderRight: "1px solid #111" }}>중 {Math.round(slotB.report.samjeong.jj)}%</div>
+                        <div style={{ width: `${slotB.report.samjeong.hj}%`, background: "linear-gradient(90deg, #39ff14, #00ff7f)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700" }}>하 {Math.round(slotB.report.samjeong.hj)}%</div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "600", color: "var(--text-secondary)" }}>
+                      <span>오악조응 균형</span>
+                      <span style={{ color: "var(--accent-purple)" }}>{slotB.report.peaks?.score || 0}점</span>
+                    </div>
+                    <div style={{ color: "#cbd5e1", lineHeight: "1.4", marginTop: "2px" }}>{slotB.report.peaks?.name || "분석대기"}</div>
+                  </div>
+
+                  <div>
+                    <div style={{ color: "var(--text-secondary)", fontWeight: "600", marginBottom: "2px" }}>현재 기색 판정</div>
+                    <div style={{ color: "var(--text-secondary)", lineHeight: "1.4" }}>{slotB.report.stars?.text || "분석 정보가 없습니다."}</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
 
         <div style={{ textAlign: "center" }}>
           <button className="btn-secondary" onClick={() => resetCompatibility(type)} style={{ padding: "12px 32px" }}>
