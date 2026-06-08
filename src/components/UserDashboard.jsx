@@ -1281,22 +1281,24 @@ export default function UserDashboard({ onOpenAdmin }) {
 
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "40px", margin: "20px 0" }}>
             {/* Thumb A */}
-            <div style={{ textAlign: "center" }}>
+            <div style={{ textAlign: "center", width: "160px" }}>
               <img src={slotA.thumbnail} style={{ width: "90px", height: "90px", borderRadius: "50%", objectFit: "cover", border: `2px solid ${themeColor}` }} alt="A" />
-              <div style={{ fontSize: "0.8rem", color: "#fff", fontWeight: "700", marginTop: "8px" }}>{compatReport.elemA}형</div>
+              <div style={{ fontSize: "0.95rem", color: "#fff", fontWeight: "700", marginTop: "8px" }}>{compatReport.elemA}형</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "4px", lineHeight: "1.3" }}>{compatReport.charA}</div>
             </div>
 
             {/* Glowing Score */}
-            <div style={{ position: "relative", width: "130px", height: "130px", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+            <div style={{ position: "relative", width: "130px", height: "130px", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
               <div className="pulse-glow-border" style={{ position: "absolute", width: "100%", height: "100%", borderRadius: "50%", border: `3px solid ${themeColor}`, animation: "spin 6s linear infinite" }}></div>
               <span style={{ fontSize: "3rem", fontWeight: "900", color: "#fff", textShadow: `0 0 10px ${themeColor}` }}>{compatReport.score}</span>
               <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "700" }}>MATCH SCORE</span>
             </div>
 
             {/* Thumb B */}
-            <div style={{ textAlign: "center" }}>
+            <div style={{ textAlign: "center", width: "160px" }}>
               <img src={slotB.thumbnail} style={{ width: "90px", height: "90px", borderRadius: "50%", objectFit: "cover", border: `2px solid ${themeColor}` }} alt="B" />
-              <div style={{ fontSize: "0.8rem", color: "#fff", fontWeight: "700", marginTop: "8px" }}>{compatReport.elemB}형</div>
+              <div style={{ fontSize: "0.95rem", color: "#fff", fontWeight: "700", marginTop: "8px" }}>{compatReport.elemB}형</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "4px", lineHeight: "1.3" }}>{compatReport.charB}</div>
             </div>
           </div>
 
