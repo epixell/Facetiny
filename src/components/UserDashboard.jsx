@@ -18,6 +18,10 @@ export default function UserDashboard({ onOpenAdmin }) {
   const [activeCameraSlot, setActiveCameraSlot] = useState(null); // 'coupleA', 'coupleB', etc.
   const [selectedArticle, setSelectedArticle] = useState(null);
 
+  // Drag-and-drop state variables
+  const [isDragOverPersonal, setIsDragOverPersonal] = useState(false);
+  const [dragOverSlotId, setDragOverSlotId] = useState(null);
+
   const [step, setStep] = useState("init"); // 'init', 'scan', 'loading', 'result'
   const [scanMode, setScanMode] = useState(""); // 'camera' or 'file'
   const [faceLandmarker, setFaceLandmarker] = useState(null);
@@ -87,8 +91,7 @@ export default function UserDashboard({ onOpenAdmin }) {
     fileInputRef.current.click();
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
+  const processPersonalFile = (file) => {
     if (!file || !faceLandmarker) return;
 
     setStep("loading");
@@ -149,6 +152,11 @@ export default function UserDashboard({ onOpenAdmin }) {
       img.src = event.target.result;
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) processPersonalFile(file);
   };
 
   const detectLoop = () => {
@@ -598,14 +606,39 @@ export default function UserDashboard({ onOpenAdmin }) {
             <div
               className="glass-panel glass-panel-hover"
               onClick={handleFileUploadClick}
-              style={{ padding: "30px", textAlign: "center", cursor: "pointer", border: "1px solid rgba(255,255,255,0.06)" }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragOverPersonal(true);
+              }}
+              onDragLeave={() => setIsDragOverPersonal(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragOverPersonal(false);
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith('image/')) {
+                  processPersonalFile(file);
+                } else {
+                  alert("이미지 파일만 드롭해 주세요.");
+                }
+              }}
+              style={{ 
+                padding: "30px", 
+                textAlign: "center", 
+                cursor: "pointer", 
+                border: isDragOverPersonal ? "2px solid #00f2fe" : "1px solid rgba(255,255,255,0.06)",
+                boxShadow: isDragOverPersonal ? "0 0 15px rgba(0, 242, 254, 0.2)" : "none",
+                background: isDragOverPersonal ? "rgba(0, 242, 254, 0.05)" : "",
+                transition: "all 0.2s ease"
+              }}
             >
               <div className="flex-center" style={{ width: "56px", height: "56px", background: "rgba(79, 172, 254, 0.1)", borderRadius: "16px", margin: "0 auto 20px auto" }}>
                 <Upload size={26} color="#4facfe" />
               </div>
-              <h3 style={{ fontSize: "1.2rem", marginBottom: "8px" }}>정면 얼굴 사진 올리기</h3>
+              <h3 style={{ fontSize: "1.2rem", marginBottom: "8px" }}>
+                {isDragOverPersonal ? "여기에 사진 놓기" : "정면 얼굴 사진 올리기"}
+              </h3>
               <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                저장된 사진 파일(JPG/PNG)을 업로드해 1회 정밀 스캔을 실행합니다.
+                {isDragOverPersonal ? "이미지를 드롭하면 즉시 분석이 실행됩니다." : "저장된 사진 파일(JPG/PNG)을 업로드 또는 드래그하여 스캔을 실행합니다."}
               </p>
               <input
                 type="file"
@@ -1136,16 +1169,45 @@ export default function UserDashboard({ onOpenAdmin }) {
     else if (slotId === 'partnerA') fileInputRefLocal = partnerFileRefA;
     else if (slotId === 'partnerB') fileInputRefLocal = partnerFileRefB;
 
+    const isDragOver = dragOverSlotId === slotId;
+
     return (
-      <div className="glass-panel" style={{
-        padding: "24px",
-        textAlign: "center",
-        border: slotData ? `2px solid ${themeColor}` : "1px dashed rgba(255,255,255,0.15)",
-        background: slotData ? `rgba(${themeColor === '#f857a6' ? '248,87,166' : '57,255,20'}, 0.02)` : "rgba(0,0,0,0.2)",
-        borderRadius: "16px",
-        transition: "all 0.3s ease",
-        position: "relative"
-      }}>
+      <div 
+        className="glass-panel" 
+        onDragOver={(e) => {
+          if (!slotData) {
+            e.preventDefault();
+            setDragOverSlotId(slotId);
+          }
+        }}
+        onDragLeave={() => setDragOverSlotId(null)}
+        onDrop={(e) => {
+          if (!slotData) {
+            e.preventDefault();
+            setDragOverSlotId(null);
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+              handleSlotFileUpload(slotId, file);
+            } else {
+              alert("이미지 파일만 드롭해 주세요.");
+            }
+          }
+        }}
+        style={{
+          padding: "24px",
+          textAlign: "center",
+          border: isDragOver 
+            ? `2px solid ${themeColor}` 
+            : (slotData ? `2px solid ${themeColor}` : "1px dashed rgba(255,255,255,0.15)"),
+          background: isDragOver
+            ? `rgba(${themeColor === '#f857a6' ? '248,87,166' : '57,255,20'}, 0.08)`
+            : (slotData ? `rgba(${themeColor === '#f857a6' ? '248,87,166' : '57,255,20'}, 0.02)` : "rgba(0,0,0,0.2)"),
+          boxShadow: isDragOver ? `0 0 15px rgba(${themeColor === '#f857a6' ? '248,87,166' : '57,255,20'}, 0.2)` : "none",
+          borderRadius: "16px",
+          transition: "all 0.3s ease",
+          position: "relative"
+        }}
+      >
         <h4 style={{ fontSize: "0.95rem", fontWeight: "700", marginBottom: "16px", color: slotData ? "#fff" : "var(--text-secondary)" }}>
           {label}
         </h4>
