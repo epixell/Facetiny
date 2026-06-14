@@ -6,8 +6,11 @@ import { evaluateRules, generateFortuneReport } from "../utils/similarity";
 import { Camera, Upload, RefreshCw, Heart, DollarSign, Users, Activity, Sparkles, Smile, CheckCircle, ArrowRight, Settings, X, Shield, BookOpen } from "lucide-react";
 import { BLOG_ARTICLES } from "../utils/blogData";
 import { evaluateCompatibility } from "../utils/compatibility";
+import { useTranslation } from "react-i18next";
 
 export default function UserDashboard({ onOpenAdmin }) {
+  const { t, i18n } = useTranslation();
+  const isEn = i18n.language === 'en';
   const [activeTab, setActiveTab] = useState("personal");
   const [coupleSlotA, setCoupleSlotA] = useState(null);
   const [coupleSlotB, setCoupleSlotB] = useState(null);
@@ -95,7 +98,7 @@ export default function UserDashboard({ onOpenAdmin }) {
     if (!file || !faceLandmarker) return;
 
     setStep("loading");
-    setLoadingStatus("얼굴 랜드마크 분석 중...");
+    setLoadingStatus(t('personal.loading_landmark'));
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -108,13 +111,13 @@ export default function UserDashboard({ onOpenAdmin }) {
         canvas.height = img.height;
         ctx.drawImage(img, 0, 0);
 
-        setLoadingStatus("이목구비 기하학 수치 환산 중...");
+        setLoadingStatus(t('personal.loading_geometry'));
         setTimeout(() => {
           const result = faceLandmarker.detect(canvas);
           if (result && result.faceLandmarks && result.faceLandmarks.length > 0) {
             const landmarks = result.faceLandmarks[0];
             
-            setLoadingStatus("명궁 및 재백궁 피부 기색 샘플링 중...");
+            setLoadingStatus(t('personal.loading_colors'));
             setTimeout(() => {
               const rawMetrics = calculateMetrics(landmarks, canvas.width, canvas.height, ctx);
               
@@ -123,7 +126,7 @@ export default function UserDashboard({ onOpenAdmin }) {
               const activeRules = savedRules ? JSON.parse(savedRules) : DEFAULT_FORTUNES;
 
               const matchedRules = evaluateRules(rawMetrics.raw, activeRules);
-              const report = generateFortuneReport(rawMetrics, matchedRules);
+              const report = generateFortuneReport(rawMetrics, matchedRules, i18n.language);
               
               // Keep image thumbnail for results
               const thumbnailCanvas = document.createElement("canvas");
@@ -139,12 +142,14 @@ export default function UserDashboard({ onOpenAdmin }) {
               
               setFinalReport({
                 ...report,
-                imageUrl: thumbnailCanvas.toDataURL()
+                imageUrl: thumbnailCanvas.toDataURL(),
+                rawMetrics,
+                matchedRules
               });
               setStep("result");
             }, 600);
           } else {
-            alert("얼굴 인식을 완료하지 못했습니다. 조명이 밝고 선명한 인물 정면 사진을 이용해주세요.");
+            alert(t('personal.face_detection_error'));
             setStep("init");
           }
         }, 500);
@@ -190,7 +195,7 @@ export default function UserDashboard({ onOpenAdmin }) {
     // Transition to loading
     stopCameraLoop();
     setStep("loading");
-    setLoadingStatus("얼굴 랜드마크 분석 중...");
+    setLoadingStatus(t('personal.loading_landmark'));
 
     const video = videoRef.current;
     const canvas = document.createElement("canvas");
@@ -203,13 +208,13 @@ export default function UserDashboard({ onOpenAdmin }) {
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    setLoadingStatus("이목구비 기하학 수치 환산 중...");
+    setLoadingStatus(t('personal.loading_geometry'));
     setTimeout(() => {
       const result = faceLandmarker.detect(canvas);
       if (result && result.faceLandmarks && result.faceLandmarks.length > 0) {
         const landmarks = result.faceLandmarks[0];
 
-        setLoadingStatus("명궁 및 재백궁 피부 기색 샘플링 중...");
+        setLoadingStatus(t('personal.loading_colors'));
         setTimeout(() => {
           const rawMetrics = calculateMetrics(landmarks, canvas.width, canvas.height, ctx);
           
@@ -218,7 +223,7 @@ export default function UserDashboard({ onOpenAdmin }) {
           const activeRules = savedRules ? JSON.parse(savedRules) : DEFAULT_FORTUNES;
 
           const matchedRules = evaluateRules(rawMetrics.raw, activeRules);
-          const report = generateFortuneReport(rawMetrics, matchedRules);
+          const report = generateFortuneReport(rawMetrics, matchedRules, i18n.language);
 
           // Get face cropped image
           const thumbnailCanvas = document.createElement("canvas");
@@ -233,12 +238,14 @@ export default function UserDashboard({ onOpenAdmin }) {
 
           setFinalReport({
             ...report,
-            imageUrl: thumbnailCanvas.toDataURL()
+            imageUrl: thumbnailCanvas.toDataURL(),
+            rawMetrics,
+            matchedRules
           });
           setStep("result");
         }, 600);
       } else {
-        alert("얼굴 인식을 실패했습니다. 밝은 조명 아래에서 정면을 응시해 주세요.");
+        alert(t('personal.face_detection_error'));
         startCamera();
       }
     }, 500);
@@ -335,13 +342,15 @@ export default function UserDashboard({ onOpenAdmin }) {
       const savedRules = localStorage.getItem("lookalike_rules");
       const activeRules = savedRules ? JSON.parse(savedRules) : DEFAULT_FORTUNES;
       const matchedRules = evaluateRules(rawMetrics.raw, activeRules);
-      const report = generateFortuneReport(rawMetrics, matchedRules);
+      const report = generateFortuneReport(rawMetrics, matchedRules, i18n.language);
 
       const slotData = {
         image: canvas.toDataURL(),
         landmarks: landmarks,
         metrics: rawMetrics.raw,
         derived: rawMetrics.derived,
+        rawMetrics: rawMetrics,
+        matchedRules: matchedRules,
         report: report,
         thumbnail: thumbnailCanvas.toDataURL()
       };
@@ -349,7 +358,7 @@ export default function UserDashboard({ onOpenAdmin }) {
       updateSlotState(activeCameraSlot, slotData);
       setActiveCameraSlot(null);
     } else {
-      alert("얼굴 인식을 완료하지 못했습니다. 얼굴이 정면에 밝게 비치도록 조정한 후 다시 촬영해 주세요.");
+      alert(t('personal.face_detection_error'));
       startSlotCamera(activeCameraSlot);
     }
   };
@@ -386,19 +395,21 @@ export default function UserDashboard({ onOpenAdmin }) {
           const savedRules = localStorage.getItem("lookalike_rules");
           const activeRules = savedRules ? JSON.parse(savedRules) : DEFAULT_FORTUNES;
           const matchedRules = evaluateRules(rawMetrics.raw, activeRules);
-          const report = generateFortuneReport(rawMetrics, matchedRules);
+          const report = generateFortuneReport(rawMetrics, matchedRules, i18n.language);
 
           const slotData = {
             image: canvas.toDataURL(),
             landmarks: landmarks,
             metrics: rawMetrics.raw,
             derived: rawMetrics.derived,
+            rawMetrics: rawMetrics,
+            matchedRules: matchedRules,
             report: report,
             thumbnail: thumbnailCanvas.toDataURL()
           };
           updateSlotState(slotId, slotData);
         } else {
-          alert("사진에서 얼굴을 인식하지 못했습니다. 선명한 얼굴 정면 사진을 이용해주세요.");
+          alert(t('personal.face_detection_error'));
         }
       };
       img.src = event.target.result;
@@ -420,13 +431,17 @@ export default function UserDashboard({ onOpenAdmin }) {
     if (!slotA || !slotB) return;
 
     setCompatStep("loading");
-    setLoadingStatus("두 사람의 안면 기하학 데이터 결합 중...");
+    setLoadingStatus(isEn ? "Merging facial geometry data..." : "두 사람의 안면 기하학 데이터 결합 중...");
 
     setTimeout(() => {
-      setLoadingStatus("오행 상생상극 체질 융합 매칭 중...");
+      setLoadingStatus(isEn ? "Matching Five Elements constitutions..." : "오행 상생상극 체질 융합 매칭 중...");
       setTimeout(() => {
-        const report = evaluateCompatibility(slotA.metrics, slotB.metrics, type);
-        setCompatReport(report);
+        const report = evaluateCompatibility(slotA.metrics, slotB.metrics, type, i18n.language);
+        setCompatReport({
+          ...report,
+          metricsA: slotA.metrics,
+          metricsB: slotB.metrics
+        });
         setCompatStep("result");
       }, 800);
     }, 800);
@@ -559,6 +574,13 @@ export default function UserDashboard({ onOpenAdmin }) {
   // --- RENDERING VIEWS ---
 
   const renderPersonalInit = () => {
+    const faqItems = [
+      { q: t('faq.q1'), a: t('faq.a1') },
+      { q: t('faq.q2'), a: t('faq.a2') },
+      { q: t('faq.q3'), a: t('faq.a3') },
+      { q: t('faq.q4'), a: t('faq.a4') }
+    ];
+
     return (
       <div className="flex-center" style={{ minHeight: "80vh", flexDirection: "column", padding: "0 10px" }}>
         
@@ -569,20 +591,25 @@ export default function UserDashboard({ onOpenAdmin }) {
         <div style={{ textAlign: "center", marginBottom: "40px", maxWidth: "600px" }}>
           <div style={{ display: "inline-flex", padding: "6px 16px", background: "rgba(0, 242, 254, 0.1)", border: "1px solid rgba(0, 242, 254, 0.2)", borderRadius: "30px", gap: "8px", alignItems: "center", marginBottom: "16px" }}>
             <Sparkles size={14} color="#00f2fe" />
-            <span style={{ fontSize: "0.8rem", fontWeight: "600", color: "#00f2fe" }}>최첨단 안면 인식 기술 기반</span>
+            <span style={{ fontSize: "0.8rem", fontWeight: "600", color: "#00f2fe" }}>{t('personal.badge')}</span>
           </div>
           <h1 style={{ fontSize: "3.2rem", fontWeight: "900", lineHeight: "1.1", marginBottom: "16px" }}>
-            AI 신비한 <span className="text-gradient">관상 점보기</span>
+            {t('personal.title').split(" ").map((w, idx) => {
+              if (idx === t('personal.title').split(" ").length - 1) {
+                return <span key={idx} className="text-gradient"> {w}</span>;
+              }
+              return (idx === 0 ? "" : " ") + w;
+            })}
           </h1>
           <p style={{ color: "var(--text-secondary)", fontSize: "1.1rem" }}>
-            얼굴의 468개 특징점 기하학 비율과 미간/코끝의 피부 기색(빛깔)을 분석하여 오행 체질 및 4대 운세를 해석합니다.
+            {t('personal.desc')}
           </p>
         </div>
 
         {loadingEngine ? (
           <div className="glass-panel" style={{ padding: "30px", display: "flex", alignItems: "center", gap: "16px", maxWidth: "360px" }}>
             <RefreshCw size={24} style={{ animation: "spin 2s linear infinite" }} color="#4facfe" />
-            <span>초기 AI 스캔 엔진을 가동하는 중...</span>
+            <span>{t('personal.loading_engine')}</span>
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", maxWidth: "580px", width: "100%" }}>
@@ -596,9 +623,9 @@ export default function UserDashboard({ onOpenAdmin }) {
               <div className="flex-center" style={{ width: "56px", height: "56px", background: "rgba(0, 242, 254, 0.1)", borderRadius: "16px", margin: "0 auto 20px auto" }}>
                 <Camera size={26} color="#00f2fe" />
               </div>
-              <h3 style={{ fontSize: "1.2rem", marginBottom: "8px" }}>실시간 카메라 스캔</h3>
+              <h3 style={{ fontSize: "1.2rem", marginBottom: "8px" }}>{t('personal.camera_scan_title')}</h3>
               <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                웹캠을 활성화하여 실시간 안면 인식 그물망으로 얼굴 비율을 분석합니다.
+                {t('personal.camera_scan_desc')}
               </p>
             </div>
 
@@ -618,7 +645,7 @@ export default function UserDashboard({ onOpenAdmin }) {
                 if (file && file.type.startsWith('image/')) {
                   processPersonalFile(file);
                 } else {
-                  alert("이미지 파일만 드롭해 주세요.");
+                  alert(t('personal.image_only_error'));
                 }
               }}
               style={{ 
@@ -635,10 +662,10 @@ export default function UserDashboard({ onOpenAdmin }) {
                 <Upload size={26} color="#4facfe" />
               </div>
               <h3 style={{ fontSize: "1.2rem", marginBottom: "8px" }}>
-                {isDragOverPersonal ? "여기에 사진 놓기" : "정면 얼굴 사진 올리기"}
+                {isDragOverPersonal ? t('personal.upload_drag_title') : t('personal.upload_title')}
               </h3>
               <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                {isDragOverPersonal ? "이미지를 드롭하면 즉시 분석이 실행됩니다." : "저장된 사진 파일(JPG/PNG)을 업로드 또는 드래그하여 스캔을 실행합니다."}
+                {isDragOverPersonal ? t('personal.upload_drag_desc') : t('personal.upload_desc')}
               </p>
               <input
                 type="file"
@@ -660,9 +687,9 @@ export default function UserDashboard({ onOpenAdmin }) {
               <Shield size={20} color="#00f2fe" />
             </div>
             <div>
-              <h4 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#fff", marginBottom: "6px" }}>개인정보 및 생체 데이터 프라이버시 안심 선언</h4>
+              <h4 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#fff", marginBottom: "6px" }}>{t('personal.privacy_title')}</h4>
               <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.5" }}>
-                Facetiny는 사용자의 얼굴 이미지나 비디오 데이터를 <strong>서버로 전송하거나 저장하지 않습니다.</strong> 모든 인공지능 분석은 기기(클라이언트 브라우저) 내부에서 WebAssembly 기반 MediaPipe 엔진을 통해 <strong>100% 로컬</strong>로만 처리되며 분석 즉시 휘발됩니다.
+                {t('personal.privacy_desc')}
               </p>
             </div>
           </div>
@@ -673,40 +700,40 @@ export default function UserDashboard({ onOpenAdmin }) {
             <div className="glass-panel" style={{ padding: "16px", border: "1px solid rgba(255, 255, 255, 0.03)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
                 <Sparkles size={12} color="#f857a6" />
-                <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>오행체질 (五行體質) 진단</span>
+                <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>{t('personal.five_elem_title')}</span>
               </div>
               <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
-                동양 상학의 《오행학설(五行學說)》에 의거, 얼굴형의 가로세로 비율과 주요 모서리의 곡률을 계측하여 목(木), 화(火), 토(土), 금(金), 수(水) 고유 체질을 판별합니다.
+                {t('personal.five_elem_desc')}
               </p>
             </div>
 
             <div className="glass-panel" style={{ padding: "16px", border: "1px solid rgba(255, 255, 255, 0.03)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
                 <Activity size={12} color="#39ff14" />
-                <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>삼정비율 (三停均衡) 계측</span>
+                <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>{t('personal.samjeong_ratio_title')}</span>
               </div>
               <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
-                전통 《삼정상법(三停相法)》에 기술된 상정(이마), 중정(눈썹~코끝), 하정(턱끝)의 Y축 비율 대칭성을 정밀 진단하여 초년·중년·말년의 조화로운 균형을 분석합니다.
+                {t('personal.samjeong_ratio_desc')}
               </p>
             </div>
 
             <div className="glass-panel" style={{ padding: "16px", border: "1px solid rgba(255, 255, 255, 0.03)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
                 <Sparkles size={12} color="var(--accent-purple)" />
-                <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>오악조응 (五岳) 입체 분석</span>
+                <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>{t('personal.five_peaks_title')}</span>
               </div>
               <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
-                얼굴의 5대 산봉우리인 이마(남악), 턱(북악), 광대(동·서악), 코(중악)의 Z축 깊이 격차(Z-Gap)를 계측하여, 코를 중심으로 주변 뼈대들이 조응하며 호위하는지 입체 판정합니다.
+                {t('personal.five_peaks_desc')}
               </p>
             </div>
 
             <div className="glass-panel" style={{ padding: "16px", border: "1px solid rgba(255, 255, 255, 0.03)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
                 <Smile size={12} color="#00f2fe" />
-                <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>기색판정 (氣色判定) 샘플링</span>
+                <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#fff" }}>{t('personal.color_aura_title')}</span>
               </div>
               <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
-                전통 《기색론(氣色論)》에 기반하여 운기가 집중되는 명궁(미간)과 재백궁(코끝) 주위의 HSL 명도 조도를 샘플링하여 현재 안색의 맑음과 운기를 진단합니다.
+                {t('personal.color_aura_desc')}
               </p>
             </div>
 
@@ -715,27 +742,10 @@ export default function UserDashboard({ onOpenAdmin }) {
           {/* FAQ Accordion Section */}
           <div style={{ marginTop: "30px" }}>
             <h3 style={{ fontSize: "1.1rem", fontWeight: "800", color: "#fff", marginBottom: "16px", display: "flex", gap: "8px", alignItems: "center" }}>
-              <svg viewBox="0 0 24 24" width="18" height="18" stroke="#00f2fe" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block' }}><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> 자주 묻는 질문 & 학술 가이드 (FAQ)
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="#00f2fe" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block' }}><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> {t('faq.title')}
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {[
-                {
-                  q: "AI 관상은 어떤 방식으로 측정되나요?",
-                  a: "Facetiny는 Google의 실시간 안면 인식 머신러닝 엔진(MediaPipe Face Landmarker)을 활용하여 사용자의 얼굴에서 468개의 3D 좌표를 실시간으로 계측합니다. 이를 통해 이마, 코, 턱, 광대의 기하학적 비대칭도 및 깊이(Z값)를 계측하고, 미간과 코끝 픽셀의 평균 HSL 조도와 밝기(기색)를 분석해 오행체질과 4대 운세 텍스트와 매칭합니다."
-                },
-                {
-                  q: "분석을 위한 얼굴 사진은 안전하게 보호되나요?",
-                  a: "예, 100% 안전합니다. Facetiny는 사용자의 비디오 프레임이나 업로드된 사진 파일을 외부 서버로 단 1바이트도 전송하지 않습니다. 모든 AI 인식 연산은 사용자의 웹 브라우저 내부(클라이언트사이드)에서 WebAssembly 컴파일 기술로 구동되어 완전히 로컬에서 종결되며, 탭을 닫거나 분석이 끝나면 즉시 메모리에서 영구히 삭제됩니다."
-                },
-                {
-                  q: "오행체질과 삼정비율의 전통학적 근거는 무엇인가요?",
-                  a: "본 서비스는 전통 동양 상학의 핵심 경전인 《마의상법(麻衣相法)》, 《오행상설(五行學說)》, 《삼정상법(三停相法)》 등에 기술된 얼굴형 분류 및 대칭 구조 이론을 기반으로 설계되었습니다. 과거 선현들이 누적한 인상학적 지표들을 정량 수치로 환산하여 매칭을 제공합니다."
-                },
-                {
-                  q: "관상 진단 결과를 전적으로 신뢰해야 하나요?",
-                  a: "아닙니다. 전통 관상학 및 인상론은 오랜 역사 동안 통계적 관찰로 축적된 지혜이나 과학적 근거를 담보하지 않습니다. 본 서비스의 결과 카드는 인생에 긍정적인 마음가짐을 가지고 건강한 생활 습관을 유지하도록 조언해 드리는 재미 및 조언 용도(Entertainment)로만 받아들이시기 바랍니다."
-                }
-              ].map((faq, idx) => {
+              {faqItems.map((faq, idx) => {
                 const isOpen = openFaqIndex === idx;
                 return (
                   <div key={idx} className="glass-panel" style={{ overflow: "hidden", border: isOpen ? "1px solid rgba(0, 242, 254, 0.2)" : "1px solid rgba(255, 255, 255, 0.05)", transition: "all 0.2s ease", borderRadius: "12px" }}>
@@ -787,7 +797,7 @@ export default function UserDashboard({ onOpenAdmin }) {
   const renderPersonalScan = () => {
     return (
       <div className="flex-center" style={{ minHeight: "85vh", flexDirection: "column" }}>
-        <h2 style={{ marginBottom: "20px" }}>가이드 라인에 맞추어 주십시오</h2>
+        <h2 style={{ marginBottom: "20px" }}>{t('personal.camera_guide')}</h2>
         
         <div style={{ position: "relative", width: "100%", maxWidth: "560px", aspectRatio: "4/3", borderRadius: "20px", overflow: "hidden", background: "#000", border: "2px solid rgba(0, 242, 254, 0.3)", boxShadow: "0 0 30px rgba(0, 242, 254, 0.2)" }}>
           <div className="scanning-line"></div>
@@ -809,10 +819,10 @@ export default function UserDashboard({ onOpenAdmin }) {
 
         <div style={{ marginTop: "24px", display: "flex", gap: "16px" }}>
           <button className="btn-primary" onClick={handleCapture} style={{ padding: "14px 40px" }}>
-            <Sparkles size={18} /> 관상 스캔 시작 (촬영)
+            <Sparkles size={18} /> {t('personal.camera_scan_btn')}
           </button>
           <button className="btn-secondary" onClick={() => { stopCameraLoop(); setStep("init"); }}>
-            돌아가기
+            {t('personal.back_btn')}
           </button>
         </div>
       </div>
@@ -828,33 +838,38 @@ export default function UserDashboard({ onOpenAdmin }) {
           <div style={{ position: "absolute", top: "10px", left: "10px", right: "10px", bottom: "10px", borderRadius: "50%", border: "2px dashed var(--accent-purple)", animation: "spin 4s linear infinite reverse" }}></div>
         </div>
         <h3 className="text-gradient" style={{ fontSize: "1.4rem", fontWeight: "600" }}>{loadingStatus}</h3>
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>잠시만 기다려 주십시오. AI가 오행과 기색 분석을 완료하고 있습니다.</p>
+        <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>{t('personal.loading_desc')}</p>
       </div>
     );
   };
 
   const renderPersonalResult = () => {
+    // Dynamically calculate localized report on-the-fly when language changes
+    const report = finalReport.rawMetrics && finalReport.matchedRules
+      ? { ...generateFortuneReport(finalReport.rawMetrics, finalReport.matchedRules, i18n.language), imageUrl: finalReport.imageUrl }
+      : finalReport;
+
     return (
       <div style={{ paddingBottom: "80px" }}>
         
         {/* Result Header */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: "24px", alignItems: "center", marginBottom: "32px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--glass-border)", padding: "24px", borderRadius: "20px" }}>
           <img 
-            src={finalReport.imageUrl} 
+            src={report.imageUrl} 
             alt="Scanned Face" 
             style={{ width: "120px", height: "120px", borderRadius: "16px", objectFit: "cover", border: "2px solid var(--accent-blue)" }}
           />
           <div style={{ flex: 1, minWidth: "250px" }}>
             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-              <span style={{ background: "var(--accent-purple)", color: "#000", fontWeight: "700", fontSize: "0.75rem", padding: "2px 8px", borderRadius: "20px" }}>진단 완료</span>
-              <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>체질 분류: {finalReport.elements.name}</span>
+              <span style={{ background: "var(--accent-purple)", color: "#000", fontWeight: "700", fontSize: "0.75rem", padding: "2px 8px", borderRadius: "20px" }}>{t('personal.scan_complete')}</span>
+              <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>{t('personal.type_label')}: {report.elements.name}</span>
             </div>
             <h1 style={{ fontSize: "2.2rem", fontWeight: "800", marginTop: "6px" }}>
-              당신은 <span className="text-gradient">{finalReport.elements.name}</span> 관상입니다
+              {t('personal.you_are')} <span className="text-gradient">{report.elements.name}</span> {t('personal.type_suffix')}
             </h1>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginTop: "4px" }}>{finalReport.elements.char}</p>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginTop: "4px" }}>{report.elements.char}</p>
           </div>
-          <button className="btn-secondary" onClick={() => setStep("init")}>다시 측정하기</button>
+          <button className="btn-secondary" onClick={() => setStep("init")}>{t('personal.reanalyze_btn')}</button>
         </div>
 
         {/* Layout Grid */}
@@ -866,34 +881,34 @@ export default function UserDashboard({ onOpenAdmin }) {
             {/* 오행 체질 설명 */}
             <div className="glass-panel" style={{ padding: "24px" }}>
               <h3 style={{ fontSize: "1.15rem", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
-                <Sparkles size={18} color="#00f2fe" /> 오행 체질 및 인상론
+                <Sparkles size={18} color="#00f2fe" /> {t('personal.five_elem_header')}
               </h3>
-              <p style={{ fontSize: "0.95rem", lineHeight: "1.6", color: "#e2e8f0" }}>{finalReport.elements.description}</p>
+              <p style={{ fontSize: "0.95rem", lineHeight: "1.6", color: "#e2e8f0" }}>{report.elements.description}</p>
             </div>
 
             {/* 삼정 비율 균형도 */}
             <div className="glass-panel" style={{ padding: "24px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
                 <h3 style={{ fontSize: "1.15rem", display: "flex", gap: "8px", alignItems: "center" }}>
-                  <Activity size={18} color="#39ff14" /> 삼정 비율 균형도
+                  <Activity size={18} color="#39ff14" /> {t('personal.samjeong_header')}
                 </h3>
-                <span style={{ fontSize: "1.3rem", fontWeight: "800", color: "#39ff14" }}>{finalReport.samjeong.score}점</span>
+                <span style={{ fontSize: "1.3rem", fontWeight: "800", color: "#39ff14" }}>{report.samjeong.score}{t('personal.score_suffix')}</span>
               </div>
               
               {/* Graphic bar */}
               <div style={{ display: "flex", height: "30px", borderRadius: "10px", overflow: "hidden", marginBottom: "16px", background: "rgba(255,255,255,0.05)", border: "1px solid var(--glass-border)" }}>
-                <div style={{ width: `${finalReport.samjeong.sj}%`, background: "linear-gradient(90deg, #f857a6, #ff5858)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: "700" }}>
-                  상정 {Math.round(finalReport.samjeong.sj)}%
+                <div style={{ width: `${report.samjeong.sj}%`, background: "linear-gradient(90deg, #f857a6, #ff5858)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: "700" }}>
+                  {t('personal.ratio_top')} {Math.round(report.samjeong.sj)}%
                 </div>
-                <div style={{ width: `${finalReport.samjeong.jj}%`, background: "linear-gradient(90deg, #00f2fe, #4facfe)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: "700", borderLeft: "1px solid #111", borderRight: "1px solid #111" }}>
-                  중정 {Math.round(finalReport.samjeong.jj)}%
+                <div style={{ width: `${report.samjeong.jj}%`, background: "linear-gradient(90deg, #00f2fe, #4facfe)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: "700", borderLeft: "1px solid #111", borderRight: "1px solid #111" }}>
+                  {t('personal.ratio_mid')} {Math.round(report.samjeong.jj)}%
                 </div>
-                <div style={{ width: `${finalReport.samjeong.hj}%`, background: "linear-gradient(90deg, #39ff14, #00ff7f)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: "700" }}>
-                  하정 {Math.round(finalReport.samjeong.hj)}%
+                <div style={{ width: `${report.samjeong.hj}%`, background: "linear-gradient(90deg, #39ff14, #00ff7f)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: "700" }}>
+                  {t('personal.ratio_bot')} {Math.round(report.samjeong.hj)}%
                 </div>
               </div>
 
-              <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", lineHeight: "1.5" }}>{finalReport.samjeong.text}</p>
+              <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", lineHeight: "1.5" }}>{report.samjeong.text}</p>
             </div>
           </div>
 
@@ -903,18 +918,18 @@ export default function UserDashboard({ onOpenAdmin }) {
             {/* 오성육요 기색 분석 */}
             <div className="glass-panel" style={{ padding: "24px" }}>
               <h3 style={{ fontSize: "1.15rem", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
-                <Sparkles size={18} color="#ff007f" /> 오성육요 기색(안색) 판정
+                <Sparkles size={18} color="#ff007f" /> {t('personal.stars_header')}
               </h3>
-              <p style={{ fontSize: "0.95rem", lineHeight: "1.6", color: "#e2e8f0" }}>{finalReport.stars.text}</p>
+              <p style={{ fontSize: "0.95rem", lineHeight: "1.6", color: "#e2e8f0" }}>{report.stars.text}</p>
               
               <div style={{ display: "flex", gap: "16px", marginTop: "16px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#ff007f" }}></span>
-                  <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>명궁 광채: {finalReport.stars.myeonggungBrightness}%</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{t('personal.myeonggung_glow')}: {report.stars.myeonggungBrightness}%</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#39ff14" }}></span>
-                  <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>재백궁 광채: {finalReport.stars.jaebaekgungBrightness}%</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{t('personal.jaebaekgung_glow')}: {report.stars.jaebaekgungBrightness}%</span>
                 </div>
               </div>
             </div>
@@ -923,34 +938,34 @@ export default function UserDashboard({ onOpenAdmin }) {
             <div className="glass-panel" style={{ padding: "24px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
                 <h3 style={{ fontSize: "1.15rem", display: "flex", gap: "8px", alignItems: "center" }}>
-                  <Sparkles size={18} color="var(--accent-purple)" /> 오악조응(五岳) 균형도
+                  <Sparkles size={18} color="var(--accent-purple)" /> {t('personal.peaks_header')}
                 </h3>
-                <span style={{ fontSize: "1.3rem", fontWeight: "800", color: finalReport.peaks?.status === "balanced" ? "#39ff14" : (finalReport.peaks?.status === "isolated" ? "#ffea00" : "#ff007f") }}>
-                  {finalReport.peaks?.score || 0}점
+                <span style={{ fontSize: "1.3rem", fontWeight: "800", color: report.peaks?.status === "balanced" ? "#39ff14" : (report.peaks?.status === "isolated" ? "#ffea00" : "#ff007f") }}>
+                  {report.peaks?.score || 0}{t('personal.score_suffix')}
                 </span>
               </div>
 
               <div style={{ display: "inline-flex", padding: "4px 12px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--glass-border)", borderRadius: "20px", fontSize: "0.85rem", fontWeight: "700", marginBottom: "14px" }}>
-                <span style={{ color: "var(--text-secondary)", marginRight: "4px" }}>진단 분류:</span>
-                <span style={{ color: finalReport.peaks?.status === "balanced" ? "#39ff14" : (finalReport.peaks?.status === "isolated" ? "#ffea00" : "#ff9d00") }}>
-                  {finalReport.peaks?.name || "분석 대기"}
+                <span style={{ color: "var(--text-secondary)", marginRight: "4px" }}>{t('personal.peaks_diagnosis')}:</span>
+                <span style={{ color: report.peaks?.status === "balanced" ? "#39ff14" : (report.peaks?.status === "isolated" ? "#ffea00" : "#ff9d00") }}>
+                  {report.peaks?.name || t('personal.analyzing')}
                 </span>
               </div>
               
               <p style={{ fontSize: "0.95rem", lineHeight: "1.6", color: "#e2e8f0", marginBottom: "16px" }}>
-                {finalReport.peaks?.text || "오악 분석 정보가 없습니다."}
+                {report.peaks?.text || t('personal.peaks_no_data')}
               </p>
 
               {/* Peak metrics details mini-chart */}
               <div style={{ display: "flex", flexDirection: "column", gap: "8px", background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)", padding: "12px", borderRadius: "10px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
-                  <span style={{ color: "var(--text-secondary)" }}>중악(코) 대비 주변부(이마/턱/광대) 격차</span>
-                  <span style={{ color: "#fff", fontWeight: "600" }}>{((finalReport.peaks?.averageZGap || 0) * 100).toFixed(1)}%</span>
+                  <span style={{ color: "var(--text-secondary)" }}>{t('personal.peaks_zgap_label')}</span>
+                  <span style={{ color: "#fff", fontWeight: "600" }}>{((report.peaks?.averageZGap || 0) * 100).toFixed(1)}%</span>
                 </div>
                 <div style={{ width: "100%", height: "6px", background: "rgba(255,255,255,0.05)", borderRadius: "3px", overflow: "hidden", position: "relative" }}>
                   <div style={{ 
                     position: "absolute", 
-                    left: `${Math.max(0, Math.min(100, ((finalReport.peaks?.averageZGap || 0) / 0.20) * 100))}%`, 
+                    left: `${Math.max(0, Math.min(100, ((report.peaks?.averageZGap || 0) / 0.20) * 100))}%`, 
                     top: 0, 
                     width: "8px", 
                     height: "100%", 
@@ -970,9 +985,9 @@ export default function UserDashboard({ onOpenAdmin }) {
                   }}></div>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.7rem", color: "var(--text-secondary)" }}>
-                  <span>낮음 (평평함)</span>
-                  <span style={{ color: "#39ff14" }}>적정 (조응형)</span>
-                  <span>높음 (고봉고산)</span>
+                  <span>{t('personal.peaks_low')}</span>
+                  <span style={{ color: "#39ff14" }}>{t('personal.peaks_mid')}</span>
+                  <span>{t('personal.peaks_high')}</span>
                 </div>
               </div>
             </div>
@@ -983,15 +998,15 @@ export default function UserDashboard({ onOpenAdmin }) {
         {/* 액운을 막는 개운 비법 (Remedy) & 미소 훈련 */}
         <div className="glass-panel" style={{ padding: "24px", marginBottom: "24px", position: "relative", overflow: "hidden" }}>
           <h3 style={{ fontSize: "1.15rem", marginBottom: "16px", display: "flex", gap: "8px", alignItems: "center" }}>
-            <Smile size={18} color="var(--accent-blue)" /> 액운을 막는 개운 비법 (Remedy)
+            <Smile size={18} color="var(--accent-blue)" /> {t('personal.remedy_title')}
           </h3>
           
           <div style={{ display: "flex", flexWrap: "wrap", gap: "24px" }}>
             {/* Advice List (Left Column) */}
             <div style={{ flex: "1 1 300px", display: "flex", flexDirection: "column", gap: "10px" }}>
-              {finalReport.categories.advice.map((ad, idx) => (
+              {report.categories.advice.map((ad, idx) => (
                 <div key={idx} style={{ fontSize: "0.85rem", background: "rgba(255,255,255,0.02)", border: "1px solid var(--glass-border)", padding: "10px 14px", borderRadius: "10px" }}>
-                  <div style={{ fontWeight: "600", color: "var(--accent-blue)", marginBottom: "2px" }}>{ad.source} 비법</div>
+                  <div style={{ fontWeight: "600", color: "var(--accent-blue)", marginBottom: "2px" }}>{ad.source} {t('personal.remedy_source')}</div>
                   <div style={{ color: "var(--text-secondary)" }}>{ad.text}</div>
                 </div>
               ))}
@@ -1014,9 +1029,9 @@ export default function UserDashboard({ onOpenAdmin }) {
               {!smileMissionActive ? (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%" }}>
                   <div style={{ textAlign: "center", marginBottom: "16px" }}>
-                    <h4 style={{ fontSize: "0.95rem", fontWeight: "700", marginBottom: "6px" }}>인상 개선을 통한 실시간 개운 트레이닝</h4>
+                    <h4 style={{ fontSize: "0.95rem", fontWeight: "700", marginBottom: "6px" }}>{t('personal.smile_title')}</h4>
                     <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", maxWidth: "300px", margin: "0 auto", lineHeight: "1.4" }}>
-                      관상은 마음의 거울입니다. 입꼬리를 올리는 훈련으로 양월구(陽月口) 관상을 가꾸어 복을 불러들이세요.
+                      {t('personal.smile_desc')}
                     </p>
                   </div>
                   
@@ -1026,11 +1041,11 @@ export default function UserDashboard({ onOpenAdmin }) {
                       onClick={startSmileMission}
                       style={{ width: "100%", maxWidth: "320px", padding: "12px", fontSize: "0.85rem", display: "inline-flex", gap: "8px", justifyContent: "center" }}
                     >
-                      <Smile size={16} /> 실시간 미소 개운법 트레이닝 시작!
+                      <Smile size={16} /> {t('personal.smile_start')}
                     </button>
                   ) : (
                     <div style={{ color: "#39ff14", fontWeight: "700", display: "flex", gap: "8px", alignItems: "center", fontSize: "0.9rem" }}>
-                      <CheckCircle size={18} /> 미소 개운 트레이닝 완료!
+                      <CheckCircle size={18} /> {t('personal.smile_success_title')}
                     </div>
                   )}
                 </div>
@@ -1038,10 +1053,10 @@ export default function UserDashboard({ onOpenAdmin }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: "0.9rem", fontWeight: "700", display: "flex", gap: "6px", alignItems: "center" }}>
-                      <Smile size={16} color="#39ff14" /> 실시간 미소 훈련 진행 중
+                      <Smile size={16} color="#39ff14" /> {t('personal.smile_in_progress')}
                     </span>
                     <button className="btn-secondary" onClick={stopSmileMission} style={{ padding: "4px 8px", fontSize: "0.75rem", display: "inline-flex", gap: "4px", background: "rgba(255,255,255,0.05)" }}>
-                      <X size={12} /> 중단
+                      <X size={12} /> {t('personal.smile_stop')}
                     </button>
                   </div>
 
@@ -1062,7 +1077,7 @@ export default function UserDashboard({ onOpenAdmin }) {
                   {/* Indicators */}
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: "6px" }}>
-                      <span style={{ color: "var(--text-secondary)" }}>미소 강도 (목표 70%)</span>
+                      <span style={{ color: "var(--text-secondary)" }}>{t('personal.smile_intensity_label')}</span>
                       <span style={{ fontWeight: "700", color: smileIntensity >= 70 ? "#39ff14" : "#ff007f" }}>{smileIntensity}%</span>
                     </div>
                     {/* Progress bar */}
@@ -1075,11 +1090,11 @@ export default function UserDashboard({ onOpenAdmin }) {
                   <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--glass-border)", padding: "10px", borderRadius: "8px", textAlign: "center" }}>
                     {smileHoldCounter > 0 ? (
                       <div style={{ fontSize: "1rem", fontWeight: "800", color: "#39ff14" }}>
-                        유지 중... {Math.round((60 - smileHoldCounter) / 30)}초 남음!
+                        {t('personal.smile_holding').replace('{count}', Math.round((60 - smileHoldCounter) / 30))}
                       </div>
                     ) : (
                       <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                        카메라를 보며 입꼬리를 당겨 주십시오!
+                        {t('personal.smile_guide')}
                       </div>
                     )}
                   </div>
@@ -1094,9 +1109,9 @@ export default function UserDashboard({ onOpenAdmin }) {
           <div className="glass-panel flex-center" style={{ padding: "30px", marginBottom: "24px", border: "2px solid #39ff14", gap: "16px", background: "rgba(57, 255, 20, 0.05)" }}>
             <CheckCircle size={40} color="#39ff14" />
             <div>
-              <h3 style={{ fontSize: "1.2rem", color: "#39ff14", fontWeight: "700" }}>미소 개운 비법 트레이닝 성공!</h3>
+              <h3 style={{ fontSize: "1.2rem", color: "#39ff14", fontWeight: "700" }}>{t('personal.smile_success_alert')}</h3>
               <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "4px" }}>
-                입을 양월구(입꼬리가 위로 휘는 모양)로 가꾸는 미소 훈련을 완료하셨습니다. 매일 실천하시면 관상이 맑아지고 대인 식복이 충만해집니다!
+                {t('personal.smile_success_desc')}
               </p>
             </div>
           </div>
@@ -1104,7 +1119,7 @@ export default function UserDashboard({ onOpenAdmin }) {
 
         {/* 4 Major Fortunes Tab Control */}
         <div className="glass-panel" style={{ padding: "24px" }}>
-          <h3 style={{ fontSize: "1.2rem", fontWeight: "700", marginBottom: "20px" }}>종합 4대 분야별 관상 해석</h3>
+          <h3 style={{ fontSize: "1.2rem", fontWeight: "700", marginBottom: "20px" }}>{t('personal.fortunes_title')}</h3>
 
           <div style={{ display: "flex", gap: "8px", borderBottom: "1px solid var(--glass-border)", paddingBottom: "12px", marginBottom: "20px" }}>
             <button
@@ -1112,39 +1127,39 @@ export default function UserDashboard({ onOpenAdmin }) {
               className="btn-secondary"
               style={{ flex: 1, padding: "10px", justifyContent: "center", background: activeFortuneTab === "love" ? "rgba(248, 87, 166, 0.12)" : "", borderColor: activeFortuneTab === "love" ? "#f857a6" : "" }}
             >
-              <Heart size={16} color="#f857a6" /> 연애·결혼운
+              <Heart size={16} color="#f857a6" /> {t('personal.fortune_love')}
             </button>
             <button
               onClick={() => setActiveFortuneTab("wealth")}
               className="btn-secondary"
               style={{ flex: 1, padding: "10px", justifyContent: "center", background: activeFortuneTab === "wealth" ? "rgba(0, 242, 254, 0.12)" : "", borderColor: activeFortuneTab === "wealth" ? "#00f2fe" : "" }}
             >
-              <DollarSign size={16} color="#00f2fe" /> 재물·금전운
+              <DollarSign size={16} color="#00f2fe" /> {t('personal.fortune_wealth')}
             </button>
             <button
               onClick={() => setActiveFortuneTab("children")}
               className="btn-secondary"
               style={{ flex: 1, padding: "10px", justifyContent: "center", background: activeFortuneTab === "children" ? "rgba(79, 172, 254, 0.12)" : "", borderColor: activeFortuneTab === "children" ? "#4facfe" : "" }}
             >
-              <Users size={16} color="#4facfe" /> 자녀운
+              <Users size={16} color="#4facfe" /> {t('personal.fortune_children')}
             </button>
             <button
               onClick={() => setActiveFortuneTab("health")}
               className="btn-secondary"
-              style={{ flex: 1, padding: "10px", justifyContent: "center", background: activeFortuneTab === "health" ? "rgba(57, 255,  সবুজ, 0.12)" : "", borderColor: activeFortuneTab === "health" ? "#39ff14" : "" }}
+              style={{ flex: 1, padding: "10px", justifyContent: "center", background: activeFortuneTab === "health" ? "rgba(57, 255, 20, 0.12)" : "", borderColor: activeFortuneTab === "health" ? "#39ff14" : "" }}
             >
-              <Activity size={16} color="#39ff14" /> 건강운
+              <Activity size={16} color="#39ff14" /> {t('personal.fortune_health')}
             </button>
           </div>
 
           {/* Active Tab Fortune Feed */}
           <div style={{ minHeight: "150px" }}>
-            {finalReport.categories[activeFortuneTab] && finalReport.categories[activeFortuneTab].length > 0 ? (
+            {report.categories[activeFortuneTab] && report.categories[activeFortuneTab].length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                {finalReport.categories[activeFortuneTab].map((item, index) => (
+                {report.categories[activeFortuneTab].map((item, index) => (
                   <div key={index} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)", paddingBottom: "14px" }}>
                     <div style={{ display: "inline-flex", fontSize: "0.75rem", color: "var(--accent-blue)", background: "rgba(0,242,254,0.08)", padding: "2px 8px", borderRadius: "10px", marginBottom: "6px" }}>
-                      분석 영역: {item.source}
+                      {t('personal.fortune_source')}: {item.source}
                     </div>
                     <p style={{ fontSize: "0.95rem", lineHeight: "1.6", color: "#cbd5e1" }}>{item.text}</p>
                   </div>
@@ -1152,7 +1167,7 @@ export default function UserDashboard({ onOpenAdmin }) {
               </div>
             ) : (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "150px", color: "var(--text-secondary)", fontSize: "0.9rem" }}>
-                등록된 관상 매칭 정보가 없습니다. 관리자 룰 설정을 점검해 주세요.
+                {t('personal.fortune_no_rules')}
               </div>
             )}
           </div>
@@ -1189,7 +1204,7 @@ export default function UserDashboard({ onOpenAdmin }) {
             if (file && file.type.startsWith('image/')) {
               handleSlotFileUpload(slotId, file);
             } else {
-              alert("이미지 파일만 드롭해 주세요.");
+              alert(t('compat.image_only_error'));
             }
           }
         }}
@@ -1237,13 +1252,13 @@ export default function UserDashboard({ onOpenAdmin }) {
                 <CheckCircle size={16} strokeWidth={3} />
               </div>
             </div>
-            <span style={{ fontSize: "0.8rem", color: "#39ff14", fontWeight: "600" }}>얼굴 분석 완료</span>
+            <span style={{ fontSize: "0.8rem", color: "#39ff14", fontWeight: "600" }}>{t('compat.face_analyzed')}</span>
             <button 
               className="btn-secondary" 
               onClick={() => updateSlotState(slotId, null)}
               style={{ padding: "6px 12px", fontSize: "0.75rem", background: "rgba(255,255,255,0.05)", border: "none" }}
             >
-              <X size={12} style={{ marginRight: "4px" }} /> 삭제
+              <X size={12} style={{ marginRight: "4px" }} /> {t('compat.delete_btn')}
             </button>
           </div>
         ) : (
@@ -1258,14 +1273,14 @@ export default function UserDashboard({ onOpenAdmin }) {
                 onClick={() => fileInputRefLocal.current.click()}
                 style={{ flex: 1, padding: "8px 10px", fontSize: "0.8rem", display: "inline-flex", gap: "4px", justifyContent: "center", alignItems: "center" }}
               >
-                <Upload size={12} /> 파일 업로드
+                <Upload size={12} /> {t('compat.upload_btn')}
               </button>
               <button 
                 className="btn-secondary" 
                 onClick={() => startSlotCamera(slotId)}
                 style={{ flex: 1, padding: "8px 10px", fontSize: "0.8rem", display: "inline-flex", gap: "4px", justifyContent: "center", alignItems: "center" }}
               >
-                <Camera size={12} /> 촬영하기
+                <Camera size={12} /> {t('compat.camera_btn')}
               </button>
             </div>
 
@@ -1293,25 +1308,25 @@ export default function UserDashboard({ onOpenAdmin }) {
       <div style={{ maxWidth: "800px", margin: "0 auto", paddingBottom: "60px" }}>
         <div style={{ textAlign: "center", marginBottom: "40px" }}>
           <h1 style={{ fontSize: "2.5rem", fontWeight: "900", marginBottom: "10px" }}>
-            {type === 'couple' ? 'AI 커플 궁합 분석' : 'AI 파트너 케미 분석'}
+            {type === 'couple' ? t('compat.couple_title_analysis') : t('compat.partner_title_analysis')}
           </h1>
           <p style={{ color: "var(--text-secondary)", fontSize: "1rem" }}>
             {type === 'couple' 
-              ? '연인으로서 두 사람의 음양오행 및 외모 대칭 궁합을 과학적 수치와 전통 인상학으로 풀어봅니다.' 
-              : '친구, 직장 동료, 동업자와의 오행 상생상극 케미와 시너지 효과를 분석합니다.'}
+              ? t('compat.couple_subtitle_analysis') 
+              : t('compat.partner_subtitle_analysis')}
           </p>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", width: "100%", maxWidth: "700px", margin: "0 auto 30px auto" }}>
           {renderSlotCard(
             type === 'couple' ? 'coupleA' : 'partnerA', 
-            type === 'couple' ? '첫 번째 인물 (남성)' : '파트너 A (본인/협력자)', 
+            type === 'couple' ? t('compat.person_a_label') : t('compat.partner_a_label'), 
             type === 'couple' ? coupleSlotA : partnerSlotA,
             themeColor
           )}
           {renderSlotCard(
             type === 'couple' ? 'coupleB' : 'partnerB', 
-            type === 'couple' ? '두 번째 인물 (여성)' : '파트너 B (상대방)', 
+            type === 'couple' ? t('compat.person_b_label') : t('compat.partner_b_label'), 
             type === 'couple' ? coupleSlotB : partnerSlotB,
             themeColor
           )}
@@ -1334,7 +1349,7 @@ export default function UserDashboard({ onOpenAdmin }) {
                 cursor: "pointer"
               }}
             >
-              <Sparkles size={18} style={{ marginRight: "8px" }} /> 궁합 매칭 분석 실행
+              <Sparkles size={18} style={{ marginRight: "8px" }} /> {type === 'couple' ? t('compat.run_analyze_btn') : t('compat.run_partner_analyze_btn')}
             </button>
           </div>
         )}
@@ -1346,6 +1361,20 @@ export default function UserDashboard({ onOpenAdmin }) {
     const slotA = type === 'couple' ? coupleSlotA : partnerSlotA;
     const slotB = type === 'couple' ? coupleSlotB : partnerSlotB;
     const themeColor = type === 'couple' ? '#f857a6' : '#39ff14';
+
+    // Dynamically calculate localized compatibility report when language changes
+    const report = compatReport && compatReport.metricsA && compatReport.metricsB
+      ? evaluateCompatibility(compatReport.metricsA, compatReport.metricsB, type, i18n.language)
+      : compatReport;
+
+    // Dynamically calculate localized individual summaries
+    const reportA = slotA && slotA.rawMetrics && slotA.matchedRules
+      ? generateFortuneReport(slotA.rawMetrics, slotA.matchedRules, i18n.language)
+      : (slotA ? slotA.report : null);
+
+    const reportB = slotB && slotB.rawMetrics && slotB.matchedRules
+      ? generateFortuneReport(slotB.rawMetrics, slotB.matchedRules, i18n.language)
+      : (slotB ? slotB.report : null);
 
     return (
       <div style={{ paddingBottom: "80px", maxWidth: "800px", margin: "0 auto" }}>
@@ -1365,37 +1394,37 @@ export default function UserDashboard({ onOpenAdmin }) {
           <div style={{ position: "absolute", bottom: "-50px", right: "-50px", width: "150px", height: "150px", background: "#4facfe", filter: "blur(80px)", opacity: 0.15 }}></div>
 
           <div style={{ display: "inline-flex", padding: "6px 16px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "30px", fontSize: "0.85rem", fontWeight: "700", color: themeColor, marginBottom: "16px", gap: "6px", alignItems: "center" }}>
-            <Sparkles size={12} /> {compatReport.relationType}
+            <Sparkles size={12} /> {report.relationType}
           </div>
 
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "40px", margin: "20px 0" }}>
             {/* Thumb A */}
             <div style={{ textAlign: "center", width: "160px" }}>
               <img src={slotA.thumbnail} style={{ width: "90px", height: "90px", borderRadius: "50%", objectFit: "cover", border: `2px solid ${themeColor}` }} alt="A" />
-              <div style={{ fontSize: "0.95rem", color: "#fff", fontWeight: "700", marginTop: "8px" }}>{compatReport.elemA}형</div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "4px", lineHeight: "1.3" }}>{compatReport.charA}</div>
+              <div style={{ fontSize: "0.95rem", color: "#fff", fontWeight: "700", marginTop: "8px" }}>{report.elemA}</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "4px", lineHeight: "1.3" }}>{report.charA}</div>
             </div>
 
             {/* Glowing Score */}
             <div style={{ position: "relative", width: "130px", height: "130px", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
               <div className="pulse-glow-border" style={{ position: "absolute", width: "100%", height: "100%", borderRadius: "50%", border: `3px solid ${themeColor}`, animation: "spin 6s linear infinite" }}></div>
-              <span style={{ fontSize: "3rem", fontWeight: "900", color: "#fff", textShadow: `0 0 10px ${themeColor}` }}>{compatReport.score}</span>
+              <span style={{ fontSize: "3rem", fontWeight: "900", color: "#fff", textShadow: `0 0 10px ${themeColor}` }}>{report.score}</span>
               <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "700" }}>MATCH SCORE</span>
             </div>
 
             {/* Thumb B */}
             <div style={{ textAlign: "center", width: "160px" }}>
               <img src={slotB.thumbnail} style={{ width: "90px", height: "90px", borderRadius: "50%", objectFit: "cover", border: `2px solid ${themeColor}` }} alt="B" />
-              <div style={{ fontSize: "0.95rem", color: "#fff", fontWeight: "700", marginTop: "8px" }}>{compatReport.elemB}형</div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "4px", lineHeight: "1.3" }}>{compatReport.charB}</div>
+              <div style={{ fontSize: "0.95rem", color: "#fff", fontWeight: "700", marginTop: "8px" }}>{report.elemB}</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "4px", lineHeight: "1.3" }}>{report.charB}</div>
             </div>
           </div>
 
           <h2 style={{ fontSize: "1.8rem", fontWeight: "800", color: "#fff", marginBottom: "10px" }}>
-            {type === 'couple' ? '환상의 연인 시너지' : '최강의 파트너 시너지'}
+            {type === 'couple' ? t('compat.couple_result_title') : t('compat.partner_result_title')}
           </h2>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem", maxWidth: "600px", margin: "0 auto", lineHeight: "1.6" }}>
-            {compatReport.description}
+            {report.description}
           </p>
         </div>
 
@@ -1404,10 +1433,10 @@ export default function UserDashboard({ onOpenAdmin }) {
           {/* Column 1: Feature Match Reasons */}
           <div className="glass-panel" style={{ padding: "24px" }}>
             <h3 style={{ fontSize: "1.1rem", fontWeight: "700", marginBottom: "16px", display: "flex", gap: "8px", alignItems: "center" }}>
-              <Activity size={16} color="#00f2fe" /> 이목구비 조화성 분석
+              <Activity size={16} color="#00f2fe" /> {t('compat.harmony_analysis')}
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {compatReport.reasons.map((reason, idx) => (
+              {report.reasons.map((reason, idx) => (
                 <div key={idx} style={{ display: "flex", gap: "10px", alignItems: "flex-start", background: "rgba(255,255,255,0.02)", padding: "12px", borderRadius: "10px", border: "1px solid var(--glass-border)" }}>
                   <span style={{ color: "#00f2fe", fontWeight: "700", fontSize: "0.85rem" }}>✓</span>
                   <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.5" }}>{reason}</p>
@@ -1419,10 +1448,10 @@ export default function UserDashboard({ onOpenAdmin }) {
           {/* Column 2: Warnings and Advice */}
           <div className="glass-panel" style={{ padding: "24px" }}>
             <h3 style={{ fontSize: "1.1rem", fontWeight: "700", marginBottom: "16px", display: "flex", gap: "8px", alignItems: "center" }}>
-              <Smile size={16} color={themeColor} /> 관계 조화 및 개운법 조언
+              <Smile size={16} color={themeColor} /> {t('compat.advice_analysis')}
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {compatReport.warnings.map((warn, idx) => (
+              {report.warnings.map((warn, idx) => (
                 <div key={idx} style={{ display: "flex", gap: "10px", alignItems: "flex-start", background: "rgba(255,255,255,0.02)", padding: "12px", borderRadius: "10px", border: "1px solid var(--glass-border)" }}>
                   <span style={{ color: themeColor, fontWeight: "700", fontSize: "0.85rem" }}>!</span>
                   <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.5" }}>{warn}</p>
@@ -1433,7 +1462,7 @@ export default function UserDashboard({ onOpenAdmin }) {
         </div>
 
         {/* 두 사람의 개별 관상 요약 (Summary Readings) */}
-        {slotA.report && slotB.report && (
+        {reportA && reportB && (
           <div style={{ marginBottom: "40px" }}>
             <h3 style={{ 
               fontSize: "1.25rem", 
@@ -1446,7 +1475,7 @@ export default function UserDashboard({ onOpenAdmin }) {
               alignItems: "center", 
               justifyContent: "center" 
             }}>
-              <Sparkles size={18} color={themeColor} /> 두 사람의 개별 관상 요약
+              <Sparkles size={18} color={themeColor} /> {t('compat.summary_title')}
             </h3>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
@@ -1457,45 +1486,45 @@ export default function UserDashboard({ onOpenAdmin }) {
                   <img src={slotA.thumbnail} style={{ width: "50px", height: "50px", borderRadius: "50%", objectFit: "cover", border: `2px solid ${themeColor}` }} alt="A" />
                   <div>
                     <h4 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#fff", margin: 0 }}>
-                      {type === 'couple' ? "A님 (남성)" : "파트너 A"}
+                      {type === 'couple' ? t('compat.person_a') : t('compat.partner_a')}
                     </h4>
                     <span style={{ fontSize: "0.75rem", color: themeColor, fontWeight: "600" }}>
-                      {slotA.report.elements?.name || "분석대기"}
+                      {reportA.elements?.name || t('personal.analyzing')}
                     </span>
                   </div>
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "0.8rem", borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: "12px" }}>
                   <div>
-                    <div style={{ color: "var(--text-secondary)", fontWeight: "600", marginBottom: "4px" }}>오행체질 설명</div>
-                    <div style={{ color: "#cbd5e1", lineHeight: "1.4" }}>{slotA.report.elements?.char || "분석 정보가 없습니다."}</div>
+                    <div style={{ color: "var(--text-secondary)", fontWeight: "600", marginBottom: "4px" }}>{t('compat.elem_desc')}</div>
+                    <div style={{ color: "#cbd5e1", lineHeight: "1.4" }}>{reportA.elements?.char || t('personal.fortune_no_rules')}</div>
                   </div>
 
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "600", color: "var(--text-secondary)" }}>
-                      <span>삼정 비율 균형</span>
-                      <span style={{ color: "#39ff14" }}>{slotA.report.samjeong?.score || 0}점</span>
+                      <span>{t('compat.samjeong_balance')}</span>
+                      <span style={{ color: "#39ff14" }}>{reportA.samjeong?.score || 0}{t('personal.score_suffix')}</span>
                     </div>
-                    {slotA.report.samjeong && (
+                    {reportA.samjeong && (
                       <div style={{ display: "flex", height: "14px", borderRadius: "7px", overflow: "hidden", margin: "6px 0", background: "rgba(255,255,255,0.05)" }}>
-                        <div style={{ width: `${slotA.report.samjeong.sj}%`, background: "linear-gradient(90deg, #f857a6, #ff5858)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700" }}>상 {Math.round(slotA.report.samjeong.sj)}%</div>
-                        <div style={{ width: `${slotA.report.samjeong.jj}%`, background: "linear-gradient(90deg, #00f2fe, #4facfe)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700", borderLeft: "1px solid #111", borderRight: "1px solid #111" }}>중 {Math.round(slotA.report.samjeong.jj)}%</div>
-                        <div style={{ width: `${slotA.report.samjeong.hj}%`, background: "linear-gradient(90deg, #39ff14, #00ff7f)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700" }}>하 {Math.round(slotA.report.samjeong.hj)}%</div>
+                        <div style={{ width: `${reportA.samjeong.sj}%`, background: "linear-gradient(90deg, #f857a6, #ff5858)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700" }}>{t('personal.ratio_top')} {Math.round(reportA.samjeong.sj)}%</div>
+                        <div style={{ width: `${reportA.samjeong.jj}%`, background: "linear-gradient(90deg, #00f2fe, #4facfe)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700", borderLeft: "1px solid #111", borderRight: "1px solid #111" }}>{t('personal.ratio_mid')} {Math.round(reportA.samjeong.jj)}%</div>
+                        <div style={{ width: `${reportA.samjeong.hj}%`, background: "linear-gradient(90deg, #39ff14, #00ff7f)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700" }}>{t('personal.ratio_bot')} {Math.round(reportA.samjeong.hj)}%</div>
                       </div>
                     )}
                   </div>
 
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "600", color: "var(--text-secondary)" }}>
-                      <span>오악조응 균형</span>
-                      <span style={{ color: "var(--accent-purple)" }}>{slotA.report.peaks?.score || 0}점</span>
+                      <span>{t('compat.peaks_balance')}</span>
+                      <span style={{ color: "var(--accent-purple)" }}>{reportA.peaks?.score || 0}{t('personal.score_suffix')}</span>
                     </div>
-                    <div style={{ color: "#cbd5e1", lineHeight: "1.4", marginTop: "2px" }}>{slotA.report.peaks?.name || "분석대기"}</div>
+                    <div style={{ color: "#cbd5e1", lineHeight: "1.4", marginTop: "2px" }}>{reportA.peaks?.name || t('personal.analyzing')}</div>
                   </div>
 
                   <div>
-                    <div style={{ color: "var(--text-secondary)", fontWeight: "600", marginBottom: "2px" }}>현재 기색 판정</div>
-                    <div style={{ color: "var(--text-secondary)", lineHeight: "1.4" }}>{slotA.report.stars?.text || "분석 정보가 없습니다."}</div>
+                    <div style={{ color: "var(--text-secondary)", fontWeight: "600", marginBottom: "2px" }}>{t('compat.stars_color')}</div>
+                    <div style={{ color: "var(--text-secondary)", lineHeight: "1.4" }}>{reportA.stars?.text || t('personal.fortune_no_rules')}</div>
                   </div>
                 </div>
               </div>
@@ -1506,45 +1535,45 @@ export default function UserDashboard({ onOpenAdmin }) {
                   <img src={slotB.thumbnail} style={{ width: "50px", height: "50px", borderRadius: "50%", objectFit: "cover", border: `2px solid ${themeColor}` }} alt="B" />
                   <div>
                     <h4 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#fff", margin: 0 }}>
-                      {type === 'couple' ? "B님 (여성)" : "파트너 B"}
+                      {type === 'couple' ? t('compat.person_b') : t('compat.partner_b')}
                     </h4>
                     <span style={{ fontSize: "0.75rem", color: themeColor, fontWeight: "600" }}>
-                      {slotB.report.elements?.name || "분석대기"}
+                      {reportB.elements?.name || t('personal.analyzing')}
                     </span>
                   </div>
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "0.8rem", borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: "12px" }}>
                   <div>
-                    <div style={{ color: "var(--text-secondary)", fontWeight: "600", marginBottom: "4px" }}>오행체질 설명</div>
-                    <div style={{ color: "#cbd5e1", lineHeight: "1.4" }}>{slotB.report.elements?.char || "분석 정보가 없습니다."}</div>
+                    <div style={{ color: "var(--text-secondary)", fontWeight: "600", marginBottom: "4px" }}>{t('compat.elem_desc')}</div>
+                    <div style={{ color: "#cbd5e1", lineHeight: "1.4" }}>{reportB.elements?.char || t('personal.fortune_no_rules')}</div>
                   </div>
 
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "600", color: "var(--text-secondary)" }}>
-                      <span>삼정 비율 균형</span>
-                      <span style={{ color: "#39ff14" }}>{slotB.report.samjeong?.score || 0}점</span>
+                      <span>{t('compat.samjeong_balance')}</span>
+                      <span style={{ color: "#39ff14" }}>{reportB.samjeong?.score || 0}{t('personal.score_suffix')}</span>
                     </div>
-                    {slotB.report.samjeong && (
+                    {reportB.samjeong && (
                       <div style={{ display: "flex", height: "14px", borderRadius: "7px", overflow: "hidden", margin: "6px 0", background: "rgba(255,255,255,0.05)" }}>
-                        <div style={{ width: `${slotB.report.samjeong.sj}%`, background: "linear-gradient(90deg, #f857a6, #ff5858)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700" }}>상 {Math.round(slotB.report.samjeong.sj)}%</div>
-                        <div style={{ width: `${slotB.report.samjeong.jj}%`, background: "linear-gradient(90deg, #00f2fe, #4facfe)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700", borderLeft: "1px solid #111", borderRight: "1px solid #111" }}>중 {Math.round(slotB.report.samjeong.jj)}%</div>
-                        <div style={{ width: `${slotB.report.samjeong.hj}%`, background: "linear-gradient(90deg, #39ff14, #00ff7f)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700" }}>하 {Math.round(slotB.report.samjeong.hj)}%</div>
+                        <div style={{ width: `${reportB.samjeong.sj}%`, background: "linear-gradient(90deg, #f857a6, #ff5858)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700" }}>{t('personal.ratio_top')} {Math.round(reportB.samjeong.sj)}%</div>
+                        <div style={{ width: `${reportB.samjeong.jj}%`, background: "linear-gradient(90deg, #00f2fe, #4facfe)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700", borderLeft: "1px solid #111", borderRight: "1px solid #111" }}>{t('personal.ratio_mid')} {Math.round(reportB.samjeong.jj)}%</div>
+                        <div style={{ width: `${reportB.samjeong.hj}%`, background: "linear-gradient(90deg, #39ff14, #00ff7f)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: "700" }}>{t('personal.ratio_bot')} {Math.round(reportB.samjeong.hj)}%</div>
                       </div>
                     )}
                   </div>
 
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "600", color: "var(--text-secondary)" }}>
-                      <span>오악조응 균형</span>
-                      <span style={{ color: "var(--accent-purple)" }}>{slotB.report.peaks?.score || 0}점</span>
+                      <span>{t('compat.peaks_balance')}</span>
+                      <span style={{ color: "var(--accent-purple)" }}>{reportB.peaks?.score || 0}{t('personal.score_suffix')}</span>
                     </div>
-                    <div style={{ color: "#cbd5e1", lineHeight: "1.4", marginTop: "2px" }}>{slotB.report.peaks?.name || "분석대기"}</div>
+                    <div style={{ color: "#cbd5e1", lineHeight: "1.4", marginTop: "2px" }}>{reportB.peaks?.name || t('personal.analyzing')}</div>
                   </div>
 
                   <div>
-                    <div style={{ color: "var(--text-secondary)", fontWeight: "600", marginBottom: "2px" }}>현재 기색 판정</div>
-                    <div style={{ color: "var(--text-secondary)", lineHeight: "1.4" }}>{slotB.report.stars?.text || "분석 정보가 없습니다."}</div>
+                    <div style={{ color: "var(--text-secondary)", fontWeight: "600", marginBottom: "2px" }}>{t('compat.stars_color')}</div>
+                    <div style={{ color: "var(--text-secondary)", lineHeight: "1.4" }}>{reportB.stars?.text || t('personal.fortune_no_rules')}</div>
                   </div>
                 </div>
               </div>
@@ -1555,7 +1584,7 @@ export default function UserDashboard({ onOpenAdmin }) {
 
         <div style={{ textAlign: "center" }}>
           <button className="btn-secondary" onClick={() => resetCompatibility(type)} style={{ padding: "12px 32px" }}>
-            <RefreshCw size={14} style={{ marginRight: "6px" }} /> 다른 궁합 보기
+            <RefreshCw size={14} style={{ marginRight: "6px" }} /> {t('compat.other_match_btn')}
           </button>
         </div>
       </div>
@@ -1563,7 +1592,13 @@ export default function UserDashboard({ onOpenAdmin }) {
   };
 
   const renderBlogTab = () => {
+    const isEn = i18n.language === 'en';
     if (selectedArticle) {
+      const title = isEn ? (selectedArticle.title_en || selectedArticle.title) : selectedArticle.title;
+      const category = isEn ? (selectedArticle.category_en || selectedArticle.category) : selectedArticle.category;
+      const readTime = isEn ? (selectedArticle.readTime_en || selectedArticle.readTime) : selectedArticle.readTime;
+      const content = isEn ? (selectedArticle.content_en || selectedArticle.content) : selectedArticle.content;
+
       return (
         <div style={{ maxWidth: "800px", margin: "0 auto", paddingBottom: "60px" }}>
           <button 
@@ -1571,21 +1606,21 @@ export default function UserDashboard({ onOpenAdmin }) {
             onClick={() => setSelectedArticle(null)}
             style={{ marginBottom: "24px", display: "inline-flex", alignItems: "center", gap: "6px" }}
           >
-            ← 목록으로 돌아가기
+            {t('common.back_to_list')}
           </button>
 
           <div className="glass-panel" style={{ padding: "40px", borderRadius: "24px", border: "1px solid rgba(0, 242, 254, 0.15)" }}>
             <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "16px" }}>
               <span style={{ background: "rgba(0, 242, 254, 0.1)", color: "#00f2fe", fontSize: "0.75rem", padding: "4px 10px", borderRadius: "20px", fontWeight: "700" }}>
-                {selectedArticle.category}
+                {category}
               </span>
               <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                {selectedArticle.readTime}
+                {readTime}
               </span>
             </div>
 
             <h1 style={{ fontSize: "2.4rem", fontWeight: "900", marginBottom: "24px", lineHeight: "1.2" }}>
-              {selectedArticle.title}
+              {title}
             </h1>
 
             <div style={{ 
@@ -1595,7 +1630,7 @@ export default function UserDashboard({ onOpenAdmin }) {
               whiteSpace: "pre-line", 
               letterSpacing: "-0.01em" 
             }}>
-              {selectedArticle.content}
+              {content}
             </div>
           </div>
         </div>
@@ -1606,52 +1641,60 @@ export default function UserDashboard({ onOpenAdmin }) {
       <div style={{ maxWidth: "1000px", margin: "0 auto", paddingBottom: "60px" }}>
         <div style={{ textAlign: "center", marginBottom: "40px" }}>
           <h1 style={{ fontSize: "2.5rem", fontWeight: "900", marginBottom: "10px" }}>
-            AI 관상 <span className="text-gradient">학술 백과</span>
+            {isEn ? <>AI Physiognomy <span className="text-gradient">Encyclopedia</span></> : <>AI 관상 <span className="text-gradient">학술 백과</span></>}
           </h1>
           <p style={{ color: "var(--text-secondary)", fontSize: "1rem" }}>
-            마의상법의 지혜부터 현대 AI 얼굴 계측 알고리즘의 과학적 원리까지 깊이 알아봅니다.
+            {isEn 
+              ? "Explore traditional physiognomy wisdom and modern AI face geometry algorithms."
+              : "마의상법의 지혜부터 현대 AI 얼굴 계측 알고리즘의 과학적 원리까지 깊이 알아봅니다."}
           </p>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "24px" }}>
-          {BLOG_ARTICLES.map(art => (
-            <div 
-              key={art.id} 
-              className="glass-panel glass-panel-hover"
-              onClick={() => setSelectedArticle(art)}
-              style={{ 
-                padding: "24px", 
-                cursor: "pointer", 
-                display: "flex", 
-                flexDirection: "column", 
-                justifyContent: "space-between", 
-                minHeight: "220px",
-                border: "1px solid rgba(255,255,255,0.06)",
-                transition: "all 0.3s ease"
-              }}
-            >
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                  <span style={{ background: "rgba(79, 172, 254, 0.1)", color: "#4facfe", fontSize: "0.7rem", padding: "2px 8px", borderRadius: "10px", fontWeight: "700" }}>
-                    {art.category}
-                  </span>
-                  <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>
-                    {art.readTime}
-                  </span>
+          {BLOG_ARTICLES.map(art => {
+            const artTitle = isEn ? (art.title_en || art.title) : art.title;
+            const artSummary = isEn ? (art.summary_en || art.summary) : art.summary;
+            const artCategory = isEn ? (art.category_en || art.category) : art.category;
+            const artReadTime = isEn ? (art.readTime_en || art.readTime) : art.readTime;
+            return (
+              <div 
+                key={art.id} 
+                className="glass-panel glass-panel-hover"
+                onClick={() => setSelectedArticle(art)}
+                style={{ 
+                  padding: "24px", 
+                  cursor: "pointer", 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  justifyContent: "space-between", 
+                  minHeight: "220px",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  transition: "all 0.3s ease"
+                }}
+              >
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                    <span style={{ background: "rgba(79, 172, 254, 0.1)", color: "#4facfe", fontSize: "0.7rem", padding: "2px 8px", borderRadius: "10px", fontWeight: "700" }}>
+                      {artCategory}
+                    </span>
+                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>
+                      {artReadTime}
+                    </span>
+                  </div>
+                  <h3 style={{ fontSize: "1.2rem", fontWeight: "800", marginBottom: "10px", lineHeight: "1.3", color: "#fff" }}>
+                    {artTitle}
+                  </h3>
+                  <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.5", margin: 0 }}>
+                    {artSummary}
+                  </p>
                 </div>
-                <h3 style={{ fontSize: "1.2rem", fontWeight: "800", marginBottom: "10px", lineHeight: "1.3", color: "#fff" }}>
-                  {art.title}
-                </h3>
-                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.5", margin: 0 }}>
-                  {art.summary}
-                </p>
+                
+                <div style={{ display: "flex", alignItems: "center", gap: "4px", color: "#00f2fe", fontSize: "0.85rem", fontWeight: "700", marginTop: "16px" }}>
+                  {t('common.read_more')} <ArrowRight size={14} />
+                </div>
               </div>
-              
-              <div style={{ display: "flex", alignItems: "center", gap: "4px", color: "#00f2fe", fontSize: "0.85rem", fontWeight: "700", marginTop: "16px" }}>
-                자세히 보기 <ArrowRight size={14} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -1684,9 +1727,9 @@ export default function UserDashboard({ onOpenAdmin }) {
           border: "1px solid rgba(0, 242, 254, 0.3)",
           boxShadow: "0 0 30px rgba(0, 242, 254, 0.2)"
         }}>
-          <h3 style={{ marginBottom: "16px", fontSize: "1.2rem", fontWeight: "700" }}>얼굴 촬영 가이드</h3>
+          <h3 style={{ marginBottom: "16px", fontSize: "1.2rem", fontWeight: "700" }}>{t('personal.guide_title')}</h3>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: "20px" }}>
-            가이드 타원 안에 정면 얼굴이 꽉 차도록 맞추어 카메라 촬영 버튼을 눌러 주십시오.
+            {t('personal.guide_desc')}
           </p>
 
           <div style={{ position: "relative", width: "100%", aspectRatio: "4/3", borderRadius: "12px", overflow: "hidden", background: "#000", marginBottom: "20px" }}>
@@ -1707,10 +1750,10 @@ export default function UserDashboard({ onOpenAdmin }) {
 
           <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
             <button className="btn-primary" onClick={captureSlotPhoto} style={{ padding: "12px 30px" }}>
-              <Sparkles size={16} /> 촬영하기
+              <Sparkles size={16} /> {t('personal.capture_btn')}
             </button>
             <button className="btn-secondary" onClick={() => { stopCameraLoop(); setActiveCameraSlot(null); }}>
-              취소
+              {t('personal.cancel_btn')}
             </button>
           </div>
         </div>
@@ -1738,10 +1781,10 @@ export default function UserDashboard({ onOpenAdmin }) {
           boxShadow: "0 4px 20px rgba(0,0,0,0.15)"
         }}>
           {[
-            { id: 'personal', label: '개인 관상', color: '#00f2fe', icon: <Sparkles size={15} /> },
-            { id: 'couple', label: '커플 궁합', color: '#f857a6', icon: <Heart size={15} /> },
-            { id: 'partner', label: '파트너 케미', color: '#39ff14', icon: <Users size={15} /> },
-            { id: 'blog', label: '관상 백과', color: '#4facfe', icon: <BookOpen size={15} /> }
+            { id: 'personal', label: t('common.personal'), color: '#00f2fe', icon: <Sparkles size={15} /> },
+            { id: 'couple', label: t('common.couple'), color: '#f857a6', icon: <Heart size={15} /> },
+            { id: 'partner', label: t('common.partner'), color: '#39ff14', icon: <Users size={15} /> },
+            { id: 'blog', label: t('common.blog'), color: '#4facfe', icon: <BookOpen size={15} /> }
           ].map(tab => {
             const isActive = activeTab === tab.id;
             const rgb = isActiveColorRgb(tab.id);
