@@ -1591,72 +1591,7 @@ export default function UserDashboard({ onOpenAdmin }) {
     );
   };
 
-  // Custom AdSense simulated block for Google AdSense compliance and CTR improvement
-  const AdSensePlaceholder = ({ type }) => {
-    const isEn = i18n.language === 'en';
-    return (
-      <div 
-        className="glass-panel" 
-        style={{
-          margin: '32px 0',
-          padding: '20px 24px',
-          borderRadius: '16px',
-          background: 'rgba(255, 255, 255, 0.01)',
-          border: '1px dashed rgba(0, 242, 254, 0.3)',
-          textAlign: 'center',
-          position: 'relative',
-          overflow: 'hidden',
-          boxShadow: '0 8px 32px 0 rgba(0, 242, 254, 0.03)'
-        }}
-      >
-        <div style={{ position: 'absolute', top: '6px', right: '12px', fontSize: '0.65rem', color: 'rgba(0, 242, 254, 0.4)', letterSpacing: '0.05em', fontWeight: '700' }}>
-          {isEn ? 'SPONSORED AD' : 'ADVERTISEMENT'}
-        </div>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: type === 'banner' ? '90px' : '130px' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(0, 242, 254, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px', border: '1px solid rgba(0, 242, 254, 0.15)' }}>
-            <Sparkles size={18} color="#00f2fe" className="pulse-glow" />
-          </div>
-          <div style={{ fontSize: '0.88rem', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>
-            {isEn ? 'Facetiny AI Physiognomy Pro' : 'Facetiny AI 관상 프리미엄 진단'}
-          </div>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', maxWidth: '480px', lineHeight: '1.4' }}>
-            {isEn 
-              ? 'Unlock detailed five-year luck reports and full facial compatibility profiling.' 
-              : '단 한 번의 스캔으로 5개년 정밀 대운 분석 및 부위별 세부 인연도 리포트를 확인해 보세요.'}
-          </div>
-          <button 
-            onClick={() => {
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-              setSelectedArticle(null);
-            }}
-            style={{
-              marginTop: '12px',
-              background: 'linear-gradient(135deg, rgba(0,242,254,0.15), rgba(79,172,254,0.15))',
-              border: '1px solid rgba(0,242,254,0.3)',
-              borderRadius: '12px',
-              padding: '6px 14px',
-              color: '#00f2fe',
-              fontSize: '0.75rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(0,242,254,0.25), rgba(79,172,254,0.25))';
-              e.currentTarget.style.borderColor = 'rgba(0,242,254,0.6)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(0,242,254,0.15), rgba(79,172,254,0.15))';
-              e.currentTarget.style.borderColor = 'rgba(0,242,254,0.3)';
-            }}
-          >
-            {isEn ? 'Start Free Scan' : '실시간 무료 스캔 시작'}
-          </button>
-        </div>
-      </div>
-    );
-  };
+
 
   // Helper to parse links and inline bold text in article content
   const parseInlineStyles = (text, isCta = false) => {
@@ -1758,11 +1693,7 @@ export default function UserDashboard({ onOpenAdmin }) {
             {headerText}
           </h2>
         );
-        
-        // Inject responsive ad block after the first H2 header
-        if (renderedElements.filter(el => el.type === 'h2').length === 1) {
-          renderedElements.push(<AdSensePlaceholder key={`ad-${index}`} type="in-feed" />);
-        }
+
         return;
       }
 
@@ -1827,7 +1758,6 @@ export default function UserDashboard({ onOpenAdmin }) {
     flushList('final');
     
     // Bottom banner ad
-    renderedElements.push(<AdSensePlaceholder key="ad-bottom" type="banner" />);
     
     // Bottom CTA to check other articles
     renderedElements.push(
