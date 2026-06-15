@@ -1591,6 +1591,299 @@ export default function UserDashboard({ onOpenAdmin }) {
     );
   };
 
+  // Custom AdSense simulated block for Google AdSense compliance and CTR improvement
+  const AdSensePlaceholder = ({ type }) => {
+    const isEn = i18n.language === 'en';
+    return (
+      <div 
+        className="glass-panel" 
+        style={{
+          margin: '32px 0',
+          padding: '20px 24px',
+          borderRadius: '16px',
+          background: 'rgba(255, 255, 255, 0.01)',
+          border: '1px dashed rgba(0, 242, 254, 0.3)',
+          textAlign: 'center',
+          position: 'relative',
+          overflow: 'hidden',
+          boxShadow: '0 8px 32px 0 rgba(0, 242, 254, 0.03)'
+        }}
+      >
+        <div style={{ position: 'absolute', top: '6px', right: '12px', fontSize: '0.65rem', color: 'rgba(0, 242, 254, 0.4)', letterSpacing: '0.05em', fontWeight: '700' }}>
+          {isEn ? 'SPONSORED AD' : 'ADVERTISEMENT'}
+        </div>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: type === 'banner' ? '90px' : '130px' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(0, 242, 254, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px', border: '1px solid rgba(0, 242, 254, 0.15)' }}>
+            <Sparkles size={18} color="#00f2fe" className="pulse-glow" />
+          </div>
+          <div style={{ fontSize: '0.88rem', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>
+            {isEn ? 'Facetiny AI Physiognomy Pro' : 'Facetiny AI 관상 프리미엄 진단'}
+          </div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', maxWidth: '480px', lineHeight: '1.4' }}>
+            {isEn 
+              ? 'Unlock detailed five-year luck reports and full facial compatibility profiling.' 
+              : '단 한 번의 스캔으로 5개년 정밀 대운 분석 및 부위별 세부 인연도 리포트를 확인해 보세요.'}
+          </div>
+          <button 
+            onClick={() => {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              setSelectedArticle(null);
+            }}
+            style={{
+              marginTop: '12px',
+              background: 'linear-gradient(135deg, rgba(0,242,254,0.15), rgba(79,172,254,0.15))',
+              border: '1px solid rgba(0,242,254,0.3)',
+              borderRadius: '12px',
+              padding: '6px 14px',
+              color: '#00f2fe',
+              fontSize: '0.75rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(0,242,254,0.25), rgba(79,172,254,0.25))';
+              e.currentTarget.style.borderColor = 'rgba(0,242,254,0.6)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(0,242,254,0.15), rgba(79,172,254,0.15))';
+              e.currentTarget.style.borderColor = 'rgba(0,242,254,0.3)';
+            }}
+          >
+            {isEn ? 'Start Free Scan' : '실시간 무료 스캔 시작'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Helper to parse links and inline bold text in article content
+  const parseInlineStyles = (text, isCta = false) => {
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = linkRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(text.substring(lastIndex, match.index));
+      }
+
+      const linkText = match[1];
+      const targetId = match[2];
+      
+      const targetArt = BLOG_ARTICLES.find(a => a.id === targetId);
+      if (targetArt) {
+        parts.push(
+          <button
+            key={match.index}
+            onClick={() => setSelectedArticle(targetArt)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#00f2fe',
+              textDecoration: 'underline',
+              cursor: 'pointer',
+              padding: 0,
+              fontSize: 'inherit',
+              fontWeight: '600',
+              fontFamily: 'inherit',
+              display: 'inline'
+            }}
+          >
+            {linkText}
+          </button>
+        );
+      } else {
+        parts.push(linkText);
+      }
+      
+      lastIndex = linkRegex.lastIndex;
+    }
+
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+
+    if (isCta) {
+      return <span style={{ color: '#00f2fe', fontWeight: '700', fontSize: '1.05rem' }}>{parts.length > 0 ? parts : text}</span>;
+    }
+
+    return parts.length > 0 ? parts : text;
+  };
+
+  // Main custom parser to structure the article text dynamically
+  const parseContent = (text, currentArticleId) => {
+    if (!text) return null;
+    const lines = text.split('\n');
+    const renderedElements = [];
+    let currentList = [];
+    let listType = null; // 'ul' or 'ol'
+    const isEn = i18n.language === 'en';
+    
+    const flushList = (key) => {
+      if (currentList.length > 0) {
+        if (listType === 'ul') {
+          renderedElements.push(
+            <ul key={`ul-${key}`} style={{ paddingLeft: '24px', marginBottom: '20px', listStyleType: 'disc', color: '#cbd5e1' }}>
+              {currentList.map((item, i) => (
+                <li key={i} style={{ marginBottom: '6px', lineHeight: '1.7' }}>{item}</li>
+              ))}
+            </ul>
+          );
+        } else if (listType === 'ol') {
+          renderedElements.push(
+            <ol key={`ol-${key}`} style={{ paddingLeft: '24px', marginBottom: '20px', listStyleType: 'decimal', color: '#cbd5e1' }}>
+              {currentList.map((item, i) => (
+                <li key={i} style={{ marginBottom: '6px', lineHeight: '1.7' }}>{item}</li>
+              ))}
+            </ol>
+          );
+        }
+        currentList = [];
+        listType = null;
+      }
+    };
+
+    lines.forEach((line, index) => {
+      const trimmed = line.trim();
+      
+      // 1. Heading 2 (##)
+      if (trimmed.startsWith('## ')) {
+        flushList(index);
+        const headerText = trimmed.replace('## ', '');
+        renderedElements.push(
+          <h2 key={index} style={{ fontSize: '1.4rem', fontWeight: '800', color: '#fff', marginTop: '36px', marginBottom: '16px', borderLeft: '4px solid #00f2fe', paddingLeft: '12px', lineHeight: '1.4' }}>
+            {headerText}
+          </h2>
+        );
+        
+        // Inject responsive ad block after the first H2 header
+        if (renderedElements.filter(el => el.type === 'h2').length === 1) {
+          renderedElements.push(<AdSensePlaceholder key={`ad-${index}`} type="in-feed" />);
+        }
+        return;
+      }
+
+      // 2. Heading 3 (###)
+      if (trimmed.startsWith('### ')) {
+        flushList(index);
+        const headerText = trimmed.replace('### ', '');
+        renderedElements.push(
+          <h3 key={index} style={{ fontSize: '1.15rem', fontWeight: '700', color: '#00f2fe', marginTop: '24px', marginBottom: '12px', lineHeight: '1.4' }}>
+            {headerText}
+          </h3>
+        );
+        return;
+      }
+
+      // 3. Unordered list (*, -, •)
+      if (trimmed.startsWith('* ') || trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+        if (listType !== 'ul') {
+          flushList(index);
+          listType = 'ul';
+        }
+        const itemText = trimmed.replace(/^(\*\s|-\s|•\s)/, '');
+        currentList.push(parseInlineStyles(itemText));
+        return;
+      }
+
+      // 4. Ordered list (1., 2., 3., etc.)
+      if (/^\d+\.\s/.test(trimmed)) {
+        if (listType !== 'ol') {
+          flushList(index);
+          listType = 'ol';
+        }
+        const itemText = trimmed.replace(/^\d+\.\s/, '');
+        currentList.push(parseInlineStyles(itemText));
+        return;
+      }
+
+      // 5. Empty line
+      if (trimmed === '') {
+        flushList(index);
+        return;
+      }
+
+      // 6. Regular paragraph
+      flushList(index);
+      
+      if (trimmed.startsWith('👉') || trimmed.includes('](')) {
+        renderedElements.push(
+          <div key={index} style={{ marginTop: '24px', marginBottom: '24px' }}>
+            {parseInlineStyles(trimmed, true)}
+          </div>
+        );
+      } else {
+        renderedElements.push(
+          <p key={index} style={{ marginBottom: '18px', color: '#cbd5e1', lineHeight: '1.8', fontSize: '1.02rem' }}>
+            {parseInlineStyles(trimmed)}
+          </p>
+        );
+      }
+    });
+
+    flushList('final');
+    
+    // Bottom banner ad
+    renderedElements.push(<AdSensePlaceholder key="ad-bottom" type="banner" />);
+    
+    // Bottom CTA to check other articles
+    renderedElements.push(
+      <div key="cta-section" style={{ marginTop: '48px', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+        <h4 style={{ fontSize: '1.05rem', fontWeight: '800', color: '#fff', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Sparkles size={16} color="#00f2fe" />
+          {isEn ? 'Recommended Encyclopedia' : '📖 함께 읽으면 유익한 관상 학술 정보'}
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+          {BLOG_ARTICLES.filter(art => art.id !== currentArticleId).slice(0, 2).map((art, idx) => (
+            <button
+              key={idx}
+              onClick={() => {
+                setSelectedArticle(art);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
+                borderRadius: '16px',
+                padding: '16px 20px',
+                textAlign: 'left',
+                color: '#00f2fe',
+                fontWeight: '700',
+                fontSize: '0.92rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(0, 242, 254, 0.05)';
+                e.currentTarget.style.borderColor = 'rgba(0, 242, 254, 0.25)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.06)';
+                e.currentTarget.style.transform = 'none';
+              }}
+            >
+              <span>👉 {isEn ? (art.title_en || art.title) : art.title}</span>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '12px' }}>
+                {isEn ? (art.category_en || art.category) : art.category}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+
+    return renderedElements;
+  };
+
   const renderBlogTab = () => {
     const isEn = i18n.language === 'en';
     if (selectedArticle) {
@@ -1627,10 +1920,9 @@ export default function UserDashboard({ onOpenAdmin }) {
               fontSize: "1.05rem", 
               lineHeight: "1.8", 
               color: "#e2e8f0", 
-              whiteSpace: "pre-line", 
               letterSpacing: "-0.01em" 
             }}>
-              {content}
+              {parseContent(content, selectedArticle.id)}
             </div>
           </div>
         </div>
