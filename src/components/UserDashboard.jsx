@@ -4,7 +4,7 @@ import { initFaceLandmarker, calculateMetrics } from "../utils/mediaPipeHelper";
 import { DEFAULT_FORTUNES } from "../utils/defaultFortuneData";
 import { evaluateRules, generateFortuneReport } from "../utils/similarity";
 import { Camera, Upload, RefreshCw, Heart, DollarSign, Users, Activity, Sparkles, Smile, CheckCircle, ArrowRight, Settings, X, Shield, BookOpen } from "lucide-react";
-import { BLOG_ARTICLES } from "../utils/blogData";
+import { BLOG_ARTICLES, getBlogArticles } from "../utils/blogData";
 import { evaluateCompatibility } from "../utils/compatibility";
 import { useTranslation } from "react-i18next";
 
@@ -1608,7 +1608,7 @@ export default function UserDashboard({ onOpenAdmin }) {
       const linkText = match[1];
       const targetId = match[2];
       
-      const targetArt = BLOG_ARTICLES.find(a => a.id === targetId);
+      const targetArt = getBlogArticles(i18n.language).find(a => a.id === targetId);
       if (targetArt) {
         parts.push(
           <button
@@ -1767,7 +1767,7 @@ export default function UserDashboard({ onOpenAdmin }) {
           {isEn ? 'Recommended Encyclopedia' : '📖 함께 읽으면 유익한 관상 학술 정보'}
         </h4>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
-          {BLOG_ARTICLES.filter(art => art.id !== currentArticleId).slice(0, 2).map((art, idx) => (
+          {getBlogArticles(i18n.language).filter(art => art.id !== currentArticleId).slice(0, 2).map((art, idx) => (
             <button
               key={idx}
               onClick={() => {
@@ -1801,9 +1801,9 @@ export default function UserDashboard({ onOpenAdmin }) {
                 e.currentTarget.style.transform = 'none';
               }}
             >
-              <span>👉 {isEn ? (art.title_en || art.title) : art.title}</span>
+              <span>👉 {art.title}</span>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '12px' }}>
-                {isEn ? (art.category_en || art.category) : art.category}
+                {art.category}
               </span>
             </button>
           ))}
@@ -1815,12 +1815,12 @@ export default function UserDashboard({ onOpenAdmin }) {
   };
 
   const renderBlogTab = () => {
-    const isEn = i18n.language === 'en';
     if (selectedArticle) {
-      const title = isEn ? (selectedArticle.title_en || selectedArticle.title) : selectedArticle.title;
-      const category = isEn ? (selectedArticle.category_en || selectedArticle.category) : selectedArticle.category;
-      const readTime = isEn ? (selectedArticle.readTime_en || selectedArticle.readTime) : selectedArticle.readTime;
-      const content = isEn ? (selectedArticle.content_en || selectedArticle.content) : selectedArticle.content;
+      const currentArt = getBlogArticles(i18n.language).find(a => a.id === selectedArticle.id) || selectedArticle;
+      const title = currentArt.title;
+      const category = currentArt.category;
+      const readTime = currentArt.readTime;
+      const content = currentArt.content;
 
       return (
         <div style={{ maxWidth: "800px", margin: "0 auto", paddingBottom: "60px" }}>
@@ -1873,11 +1873,11 @@ export default function UserDashboard({ onOpenAdmin }) {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "24px" }}>
-          {BLOG_ARTICLES.map(art => {
-            const artTitle = isEn ? (art.title_en || art.title) : art.title;
-            const artSummary = isEn ? (art.summary_en || art.summary) : art.summary;
-            const artCategory = isEn ? (art.category_en || art.category) : art.category;
-            const artReadTime = isEn ? (art.readTime_en || art.readTime) : art.readTime;
+          {getBlogArticles(i18n.language).map(art => {
+            const artTitle = art.title;
+            const artSummary = art.summary;
+            const artCategory = art.category;
+            const artReadTime = art.readTime;
             return (
               <div 
                 key={art.id} 
@@ -1986,6 +1986,53 @@ export default function UserDashboard({ onOpenAdmin }) {
   return (
     <div style={{ position: "relative", minHeight: "80vh" }}>
       {renderCameraModal()}
+
+      {/* Floating Language Switcher */}
+      {step !== "scan" && step !== "loading" && compatStep !== "loading" && (
+        <div style={{
+          position: "absolute",
+          top: "-45px",
+          right: "10px",
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+          background: "rgba(30, 41, 59, 0.4)",
+          border: "1px solid rgba(0, 242, 254, 0.15)",
+          padding: "3px 6px",
+          borderRadius: "20px",
+          backdropFilter: "blur(12px)",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          zIndex: 50
+        }}>
+          {[
+            { code: "ko", label: "KO" },
+            { code: "en", label: "EN" },
+            { code: "ja", label: "JA" },
+            { code: "zh", label: "繁中" }
+          ].map(lang => {
+            const isSelected = i18n.language.startsWith(lang.code);
+            return (
+              <button
+                key={lang.code}
+                onClick={() => i18n.changeLanguage(lang.code)}
+                style={{
+                  background: isSelected ? "linear-gradient(135deg, #00f2fe, #4facfe)" : "transparent",
+                  border: "none",
+                  color: isSelected ? "#fff" : "var(--text-secondary)",
+                  fontSize: "0.72rem",
+                  fontWeight: "700",
+                  padding: "4px 8px",
+                  borderRadius: "12px",
+                  cursor: "pointer",
+                  transition: "all 0.2s"
+                }}
+              >
+                {lang.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {step !== "scan" && step !== "loading" && compatStep !== "loading" && (
         <div style={{

@@ -1,14 +1,13 @@
 import fs from 'fs';
 import path from 'path';
-import { BLOG_ARTICLES } from '../src/utils/blogData.js';
+import { 
+  BLOG_ARTICLES_KO, 
+  BLOG_ARTICLES_EN, 
+  BLOG_ARTICLES_JA, 
+  BLOG_ARTICLES_ZH 
+} from '../src/utils/blogData.js';
 
 const PUBLIC_DIR = path.resolve('public');
-const BLOG_DIR = path.join(PUBLIC_DIR, 'blog');
-
-// Ensure directories exist
-if (!fs.existsSync(BLOG_DIR)) {
-  fs.mkdirSync(BLOG_DIR, { recursive: true });
-}
 
 // Markdown to HTML simple parser
 function parseMarkdownToHtml(text) {
@@ -28,9 +27,12 @@ function parseMarkdownToHtml(text) {
   lines.forEach(line => {
     let trimmed = line.trim();
 
-    // Parse inline links [text](art_X) -> <a href="/blog/art_X/">text</a>
+    // Parse inline links [text](art_X) -> <a href="/blog/art_X/">text</a> or other language prefixes
+    // But since the links inside our content might point to other articles, let's make it relative / dynamically handled:
+    // If it's [text](art_X) inside the markdown, the parser can replace it
     trimmed = trimmed.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, linkText, targetId) => {
-      return `<a href="/blog/${targetId}/" class="article-link">${linkText}</a>`;
+      // The prefix will be added in context of language
+      return `__LINK_PLACEHOLDER_${targetId}__${linkText}__`;
     });
 
     // Parse inline bolding **text** -> <strong>text</strong>
@@ -96,25 +98,92 @@ function parseMarkdownToHtml(text) {
     html += `<p class="article-paragraph">${trimmed}</p>\n`;
   });
 
-  flushList();
   return html;
 }
 
-// Generate static HTML for each article
-console.log("Generating static blog pages...");
-BLOG_ARTICLES.forEach(art => {
-  const articleHtml = parseMarkdownToHtml(art.content);
-  const dirPath = path.join(BLOG_DIR, art.id);
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
+const languages = [
+  {
+    code: 'ko',
+    articles: BLOG_ARTICLES_KO,
+    pathPrefix: '',
+    langAttr: 'ko',
+    siteName: 'AI 관상',
+    startCta: '실시간 무료 스캔 시작',
+    titleSuffix: 'AI 관상 학술 백과 | Facetiny',
+    disclaimerText: '© 2026 Facetiny. All rights reserved. 본 정보는 학술적 분석과 재미를 위한 내용이며 의학적 판단을 대체하지 않습니다.',
+    privacyLabel: '개인정보처리방침',
+    termsLabel: '이용약관',
+    policyLabel: '애드센스 정책안내'
+  },
+  {
+    code: 'en',
+    articles: BLOG_ARTICLES_EN,
+    pathPrefix: 'en/',
+    langAttr: 'en',
+    siteName: 'AI Physiognomy',
+    startCta: 'Start Free Scan',
+    titleSuffix: 'AI Physiognomy Encyclopedia | Facetiny',
+    disclaimerText: '© 2026 Facetiny. All rights reserved. This content is for educational and entertainment purposes and does not replace medical advice.',
+    privacyLabel: 'Privacy Policy',
+    termsLabel: 'Terms of Service',
+    policyLabel: 'AdSense Policy'
+  },
+  {
+    code: 'ja',
+    articles: BLOG_ARTICLES_JA,
+    pathPrefix: 'ja/',
+    langAttr: 'ja',
+    siteName: 'AI観相',
+    startCta: '無料スキャン開始',
+    titleSuffix: 'AI観相学術百科 | Facetiny',
+    disclaimerText: '© 2026 Facetiny. All rights reserved. 本情報は学術的分析と娯楽のための内容であり、医学的判断に代わるものではありません。',
+    privacyLabel: '個人情報方針',
+    termsLabel: '利用規約',
+    policyLabel: 'アドセンスポリシー'
+  },
+  {
+    code: 'zh',
+    articles: BLOG_ARTICLES_ZH,
+    pathPrefix: 'zh/',
+    langAttr: 'zh-TW',
+    siteName: 'AI觀相',
+    startCta: '開始免費掃描',
+    titleSuffix: 'AI觀相學術百科 | Facetiny',
+    disclaimerText: '© 2026 Facetiny. All rights reserved. 本資訊僅供學術分析與娛樂用途，不可替代醫學診斷。',
+    privacyLabel: '隱私權政策',
+    termsLabel: '服務條款',
+    policyLabel: 'AdSense政策'
+  }
+];
+
+console.log("Generating static blog pages for all 4 languages...");
+
+languages.forEach(langConfig => {
+  const blogDir = path.join(PUBLIC_DIR, langConfig.pathPrefix, 'blog');
+  
+  if (!fs.existsSync(blogDir)) {
+    fs.mkdirSync(blogDir, { recursive: true });
   }
 
-  const pageTitle = `${art.title} - AI 관상 학술 백과 | Facetiny`;
-  const pageDescription = art.summary;
-  const canonicalUrl = `https://facetiny.pages.dev/blog/${art.id}/`;
+  langConfig.articles.forEach(art => {
+    let rawHtmlContent = parseMarkdownToHtml(art.content);
+    
+    // Resolve link placeholders for current language prefix
+    rawHtmlContent = rawHtmlContent.replace(/__LINK_PLACEHOLDER_([^_\s]+)__([^_]+)__/g, (match, targetId, linkText) => {
+      return `<a href="/${langConfig.pathPrefix}blog/${targetId}/" class="article-link">${linkText}</a>`;
+    });
 
-  const htmlTemplate = `<!DOCTYPE html>
-<html lang="ko">
+    const dirPath = path.join(blogDir, art.id);
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+
+    const pageTitle = `${art.title} - ${langConfig.titleSuffix}`;
+    const pageDescription = art.summary;
+    const canonicalUrl = `https://facetiny.pages.dev/${langConfig.pathPrefix}blog/${art.id}/`;
+
+    const htmlTemplate = `<!DOCTYPE html>
+<html lang="${langConfig.langAttr}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -131,6 +200,13 @@ BLOG_ARTICLES.forEach(art => {
     gtag('config', 'G-GK3XLJ5Q5M');
   </script>
   
+  <!-- Google SEO Alternate Languages (hreflang) -->
+  <link rel="alternate" hreflang="x-default" href="https://facetiny.pages.dev/blog/${art.id}/">
+  <link rel="alternate" hreflang="ko" href="https://facetiny.pages.dev/blog/${art.id}/">
+  <link rel="alternate" hreflang="en" href="https://facetiny.pages.dev/en/blog/${art.id}/">
+  <link rel="alternate" hreflang="ja" href="https://facetiny.pages.dev/ja/blog/${art.id}/">
+  <link rel="alternate" hreflang="zh-TW" href="https://facetiny.pages.dev/zh/blog/${art.id}/">
+
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:url" content="${canonicalUrl}">
@@ -335,8 +411,8 @@ BLOG_ARTICLES.forEach(art => {
 <body>
   <div class="container">
     <header>
-      <a href="/" class="logo">🔮 Facetiny <span>AI 관상</span></a>
-      <a href="/" class="btn-cta">실시간 무료 스캔 시작</a>
+      <a href="/" class="logo">🔮 Facetiny <span>${langConfig.siteName}</span></a>
+      <a href="/" class="btn-cta">${langConfig.startCta}</a>
     </header>
 
     <article class="article-card">
@@ -344,37 +420,43 @@ BLOG_ARTICLES.forEach(art => {
       <h1>${art.title}</h1>
       
       <div class="article-body">
-        ${articleHtml}
+        ${rawHtmlContent}
       </div>
     </article>
 
     <footer>
-      <div>© 2026 Facetiny. All rights reserved. 본 정보는 학술적 분석과 재미를 위한 내용이며 의학적 판단을 대체하지 않습니다.</div>
+      <div>${langConfig.disclaimerText}</div>
       <div class="footer-links">
-        ${BLOG_ARTICLES.map(b => `<a href="/blog/${b.id}/">${b.title.split('(')[0].split(':')[0]}</a>`).join('\n        ')}
+        ${langConfig.articles.map(b => `<a href="/${langConfig.pathPrefix}blog/${b.id}/">${b.title.split('(')[0].split(':')[0]}</a>`).join('\n        ')}
       </div>
       <div>
-        <a href="/privacy.html" style="color: var(--text-muted); margin-right: 12px;">개인정보처리방침</a>
-        <a href="/terms.html" style="color: var(--text-muted); margin-right: 12px;">이용약관</a>
-        <a href="/adsense-policy.html" style="color: var(--text-muted);">애드센스 정책안내</a>
+        <a href="/privacy.html" style="color: var(--text-muted); margin-right: 12px;">${langConfig.privacyLabel}</a>
+        <a href="/terms.html" style="color: var(--text-muted); margin-right: 12px;">${langConfig.termsLabel}</a>
+        <a href="/adsense-policy.html" style="color: var(--text-muted);">${langConfig.policyLabel}</a>
       </div>
     </footer>
   </div>
 </body>
 </html>`;
 
-  fs.writeFileSync(path.join(dirPath, 'index.html'), htmlTemplate, 'utf-8');
+    fs.writeFileSync(path.join(dirPath, 'index.html'), htmlTemplate, 'utf-8');
+  });
 });
 
-// Generate sitemap.xml
-console.log("Generating sitemap.xml...");
+// Generate multilingual sitemap.xml
+console.log("Generating unified sitemap.xml...");
 const sitemapUrls = [
   'https://facetiny.pages.dev/',
   'https://facetiny.pages.dev/privacy.html',
   'https://facetiny.pages.dev/terms.html',
-  'https://facetiny.pages.dev/adsense-policy.html',
-  ...BLOG_ARTICLES.map(art => `https://facetiny.pages.dev/blog/${art.id}/`)
+  'https://facetiny.pages.dev/adsense-policy.html'
 ];
+
+languages.forEach(lang => {
+  lang.articles.forEach(art => {
+    sitemapUrls.push(`https://facetiny.pages.dev/${lang.pathPrefix}blog/${art.id}/`);
+  });
+});
 
 const sitemapContent = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -395,10 +477,18 @@ Sitemap: https://facetiny.pages.dev/sitemap.xml
 `;
 fs.writeFileSync(path.join(PUBLIC_DIR, 'robots.txt'), robotsContent, 'utf-8');
 
-// Inject hidden links into index.html
+// Inject all 4 languages hidden links into index.html
 console.log("Injecting sitemap links into main index.html for crawler discovery...");
 const indexHtmlPath = path.resolve('index.html');
 let indexHtml = fs.readFileSync(indexHtmlPath, 'utf-8');
+
+const allLinksList = languages.flatMap(lang => 
+  lang.articles.map(b => `<li style="margin: 10px 0;"><a href="/${lang.pathPrefix}blog/${b.id}/" style="color: #00f2fe; text-decoration: underline;">${b.title}</a></li>`)
+).join('\n          ');
+
+const hiddenLinksList = languages.flatMap(lang => 
+  lang.articles.map(b => `<li><a href="/${lang.pathPrefix}blog/${b.id}/">${b.title}</a></li>`)
+).join('\n        ');
 
 const injectBlock = `
     <!-- SEO Footer for Crawlers and Accessibility -->
@@ -406,19 +496,18 @@ const injectBlock = `
       <div style="padding: 20px; background: #0b0f19; color: #fff; text-align: center;">
         <h2>AI 관상 학술 백과 목록 (Physiognomy Encyclopedia)</h2>
         <ul style="list-style: none; padding: 0;">
-          ${BLOG_ARTICLES.map(b => `<li style="margin: 10px 0;"><a href="/blog/${b.id}/" style="color: #00f2fe; text-decoration: underline;">${b.title}</a></li>`).join('\n          ')}
+          ${allLinksList}
         </ul>
       </div>
     </noscript>
     <div style="display: none;" aria-hidden="true">
       <h2>AI 관상 학술 백과 목록 (Physiognomy Encyclopedia)</h2>
       <ul>
-        ${BLOG_ARTICLES.map(b => `<li><a href="/blog/${b.id}/">${b.title}</a></li>`).join('\n        ')}
+        ${hiddenLinksList}
       </ul>
     </div>
   </body>`;
 
-// Avoid duplicate injection
 if (indexHtml.includes('AI 관상 학술 백과 목록')) {
   indexHtml = indexHtml.replace(/<!-- SEO Footer for Crawlers and Accessibility -->[\s\S]*<\/body>/, injectBlock);
 } else {

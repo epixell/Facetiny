@@ -10,7 +10,9 @@ i18n
   .init({
     resources: {
       ko: { translation: TRANSLATIONS.ko },
-      en: { translation: TRANSLATIONS.en }
+      en: { translation: TRANSLATIONS.en },
+      ja: { translation: TRANSLATIONS.ja },
+      zh: { translation: TRANSLATIONS.zh }
     },
     fallbackLng: 'ko',
     debug: false,
