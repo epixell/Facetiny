@@ -94,7 +94,15 @@ function App() {
               }}
             >
               <Globe size={13} color="#00f2fe" />
-              <span>{i18n.language.startsWith('ko') ? '한국어' : 'English'}</span>
+              <span>
+                {(() => {
+                  if (i18n.language.startsWith('ko')) return '한국어';
+                  if (i18n.language.startsWith('en')) return 'English';
+                  if (i18n.language.startsWith('ja')) return '日本語';
+                  if (i18n.language.startsWith('zh')) return '繁體中文';
+                  return '한국어';
+                })()}
+              </span>
               <ChevronDown size={11} style={{ transform: isLangDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
             </button>
 
@@ -195,6 +203,72 @@ function App() {
                     }}
                   >
                     English
+                  </button>
+                  <button
+                    onClick={() => {
+                      i18n.changeLanguage('ja');
+                      setIsLangDropdownOpen(false);
+                    }}
+                    style={{
+                      background: i18n.language.startsWith('ja') ? 'rgba(0, 242, 254, 0.12)' : 'transparent',
+                      border: 'none',
+                      color: i18n.language.startsWith('ja') ? '#00f2fe' : 'var(--text-secondary)',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.8rem',
+                      fontWeight: i18n.language.startsWith('ja') ? '700' : '500',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      width: '100%',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!i18n.language.startsWith('ja')) {
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                        e.currentTarget.style.color = '#fff';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!i18n.language.startsWith('ja')) {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = 'var(--text-secondary)';
+                      }
+                    }}
+                  >
+                    日本語
+                  </button>
+                  <button
+                    onClick={() => {
+                      i18n.changeLanguage('zh');
+                      setIsLangDropdownOpen(false);
+                    }}
+                    style={{
+                      background: i18n.language.startsWith('zh') ? 'rgba(0, 242, 254, 0.12)' : 'transparent',
+                      border: 'none',
+                      color: i18n.language.startsWith('zh') ? '#00f2fe' : 'var(--text-secondary)',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.8rem',
+                      fontWeight: i18n.language.startsWith('zh') ? '700' : '500',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      width: '100%',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!i18n.language.startsWith('zh')) {
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                        e.currentTarget.style.color = '#fff';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!i18n.language.startsWith('zh')) {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = 'var(--text-secondary)';
+                      }
+                    }}
+                  >
+                    繁體中文
                   </button>
                 </div>
               </>

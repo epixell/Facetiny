@@ -1987,52 +1987,7 @@ export default function UserDashboard({ onOpenAdmin }) {
     <div style={{ position: "relative", minHeight: "80vh" }}>
       {renderCameraModal()}
 
-      {/* Floating Language Switcher */}
-      {step !== "scan" && step !== "loading" && compatStep !== "loading" && (
-        <div style={{
-          position: "absolute",
-          top: "-45px",
-          right: "10px",
-          display: "flex",
-          alignItems: "center",
-          gap: "4px",
-          background: "rgba(30, 41, 59, 0.4)",
-          border: "1px solid rgba(0, 242, 254, 0.15)",
-          padding: "3px 6px",
-          borderRadius: "20px",
-          backdropFilter: "blur(12px)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-          zIndex: 50
-        }}>
-          {[
-            { code: "ko", label: "KO" },
-            { code: "en", label: "EN" },
-            { code: "ja", label: "JA" },
-            { code: "zh", label: "繁中" }
-          ].map(lang => {
-            const isSelected = i18n.language.startsWith(lang.code);
-            return (
-              <button
-                key={lang.code}
-                onClick={() => i18n.changeLanguage(lang.code)}
-                style={{
-                  background: isSelected ? "linear-gradient(135deg, #00f2fe, #4facfe)" : "transparent",
-                  border: "none",
-                  color: isSelected ? "#fff" : "var(--text-secondary)",
-                  fontSize: "0.72rem",
-                  fontWeight: "700",
-                  padding: "4px 8px",
-                  borderRadius: "12px",
-                  cursor: "pointer",
-                  transition: "all 0.2s"
-                }}
-              >
-                {lang.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
+
 
       {step !== "scan" && step !== "loading" && compatStep !== "loading" && (
         <div style={{
