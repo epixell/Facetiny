@@ -122,6 +122,15 @@ BLOG_ARTICLES.forEach(art => {
   <meta name="description" content="${pageDescription}">
   <link rel="canonical" href="${canonicalUrl}">
   
+  <!-- Google Analytics (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GK3XLJ5Q5M"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-GK3XLJ5Q5M');
+  </script>
+  
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:url" content="${canonicalUrl}">
